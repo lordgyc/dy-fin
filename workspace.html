@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Actions Workspace</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <!-- Removed Ethiopian calendar CDN script -->
+    <!-- <script src="https://cdn.jsdelivr.net/npm/ethiopian-calendar-js@latest/ethiopian-calendar.min.js"></script> -->
+</head>
+<body>
+    <!-- Header Component -->
+    <div class="app-header">
+        <h1>Financial Workspace</h1>
+        <div class="top-right-nav">
+            <button id="back-to-login-btn" class="nav-action-btn">Back to Login</button>
+            <button id="go-to-reports-btn" class="nav-action-btn">Go to Reports</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="table-controls">
+            <button id="add-row-btn" class="modern-add-btn"><i class="fas fa-plus"></i> Add New Row</button>
+            <span id="current-ethiopian-month" style="margin-left: 10px; font-weight: bold;"></span>
+            <!-- Removed Ethiopian month span placeholder -->
+            <!-- Removed search container -->
+        </div>
+
+        <table id="actions-table">
+            <thead>
+                <tr>
+                    <th>Actions<div class="resizer"></div></th>
+                    <th>Vendor Name<div class="resizer"></div></th>
+                    <th>MRC No<div class="resizer"></div></th>
+                    <th>TIN No<div class="resizer"></div></th>
+                    <th>Item Name<div class="resizer"></div></th>
+                    <th>Purchase Date<div class="resizer"></div></th>
+                    <th>Unit<div class="resizer"></div></th>
+                    <th>Quantity<div class="resizer"></div></th>
+                    <th>Unit Price<div class="resizer"></div></th>
+                    <th>VAT %<div class="resizer"></div></th>
+                    <th>VAT Exclude<div class="resizer"></div></th>
+                    <th>Total VAT<div class="resizer"></div></th>
+                    <th>FS Number<div class="resizer"></div></th>
+                    <th>Subtotal<div class="resizer"></div></th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Rows will be added here by JavaScript -->
+            </tbody>
+            <tfoot>
+                <tr id="summary-row">
+                    <td colspan="11"><strong>Summary</strong></td>
+                    <td id="summary-total-vat">0.00</td>
+                    <td></td> <!-- Empty cell for FS Number column -->
+                    <td id="summary-subtotal">0.00</td>
+                </tr>
+            </tfoot>
+        </table>
+        <!-- <button id="save-all-btn">Save All Records</button> -->
+    </div>
+
+    <!-- Custom Notification Modal -->
+    <div id="notification-modal" class="notification-modal">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <p id="notification-message"></p>
+        </div>
+    </div>
+
+    <script src="workspace.js"></script>
+</body>
+</html>
