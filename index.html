@@ -2,48 +2,71 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Finance Management</title>
+    <title>DY Finance Manager</title>
     <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
+    <!-- Link to the NEW stylesheet -->
     <link rel="stylesheet" href="styles.css">
+    <!-- Font Awesome for your icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
-    <div class="header">
-        <i class="fas fa-money-bill-wave money-icon"></i>
-        <span class="header-text">DY Finance Manager</span>
-    </div>
 
+    <!-- This is the new, modern header -->
+    <header class="header">
+        <a href="/" class="logo-link">
+            <span class="logo-icon">ƒ</span>
+            <span class="logo-title">dy finance</span>
+        </a>
+    </header>
+
+    <!-- Main container with the new background -->
     <div class="main-container">
-        <div class="navigation-panel">
-            <button class="nav-button">
-                <i class="fas fa-briefcase"></i>
-                <span>Workspace</span>
-            </button>
-            <button class="nav-button">
-                <i class="fas fa-chart-line"></i>
-                <span>Reports</span>
-            </button>
-        </div>
 
+        <!-- Login Panel (Left Column) - Styled as a modern card -->
         <div class="login-panel">
-            <i class="fas fa-user-lock auth-icon"></i>
-            <h2>Login</h2>
+            <div class="card-header">
+                <h2>Welcome back</h2>
+                <p>Log in to access your dashboard</p>
+            </div>
             <form>
                 <div class="form-group">
-                    <label for="username">Username:</label>
-                    <input type="text" id="username" name="username">
+                    <label for="username">Username</label>
+                    <input type="text" id="username" name="username" placeholder="Enter username">
                 </div>
                 <div class="form-group">
-                    <label for="password">Password:</label>
-                    <input type="password" id="password" name="password">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter password">
                 </div>
                 <button type="submit">Login</button>
             </form>
+            <!-- Status elements will appear here, styled by the new CSS -->
             <div id="login-status" class="login-status"></div>
             <div id="loading-spinner" class="loading-spinner"></div>
         </div>
+
+        <!-- Navigation Panel (Right Column) - Styled as feature cards -->
+        <div class="navigation-panel">
+            <!-- These are your original buttons, now styled as cards -->
+            <button class="nav-button">
+                <div class="card-glow"></div>
+                <div class="card-content">
+                    <div class="icon-wrapper"><i class="fas fa-briefcase"></i></div>
+                    <h3>Workspace</h3>
+                    <p>Manage vendors, VAT, and totals.</p>
+                </div>
+            </button>
+            <button class="nav-button">
+                <div class="card-glow"></div>
+                <div class="card-content">
+                    <div class="icon-wrapper"><i class="fas fa-chart-line"></i></div>
+                    <h3>Reports</h3>
+                    <p>Generate insights and exports.</p>
+                </div>
+            </button>
+        </div>
     </div>
     
+    <!-- Your existing JS file - NO CHANGES NEEDED -->
     <script src="renderer.js"></script>
 </body>
 </html>

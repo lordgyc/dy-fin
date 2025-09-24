@@ -3,65 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Financial Actions Workspace</title>
+    <title>Financial Workspace</title>
+    <!-- Link to the NEW modern spreadsheet stylesheet -->
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
-    <!-- Removed Ethiopian calendar CDN script -->
-    <!-- <script src="https://cdn.jsdelivr.net/npm/ethiopian-calendar-js@latest/ethiopian-calendar.min.js"></script> -->
 </head>
 <body>
-    <!-- Header Component -->
-    <div class="app-header">
-        <h1>Financial Workspace</h1>
-        <div class="top-right-nav">
+
+    <!-- MODERN HEADER (Added) -->
+    <header class="header">
+        <a href="/" class="logo-link">
+            <span class="logo-icon">ƒ</span>
+            <span class="logo-title">dy finance</span>
+        </a>
+        <div class="header-actions">
             <button id="back-to-login-btn" class="nav-action-btn">Back to Login</button>
             <button id="go-to-reports-btn" class="nav-action-btn">Go to Reports</button>
         </div>
-    </div>
+    </header>
 
-    <div class="container">
-        <div class="table-controls">
-            <button id="add-row-btn" class="modern-add-btn"><i class="fas fa-plus"></i> Add New Row</button>
-            <span id="current-ethiopian-month" style="margin-left: 10px; font-weight: bold;"></span>
-            <!-- Removed Ethiopian month span placeholder -->
-            <!-- Removed search container -->
+    <!-- MAIN PAGE CONTENT -->
+    <main class="page-container">
+        <!-- Page Title & Controls -->
+        <div class="page-header">
+            <div>
+                <h1>Financial Workspace <span id="ethiopian-month" class="subtitle"></span></h1>
+                <p class="subtitle">A modern spreadsheet for your financial data.</p>
+            </div>
+            <div class="table-controls">
+                <button id="sync-logs-btn" class="modern-sync-btn">
+                    <!-- Sync Icon SVG (Example - replace with a suitable icon) -->
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.6667 8C14.6667 11.6819 11.6819 14.6667 8 14.6667C4.3181 14.6667 1.33333 11.6819 1.33333 8C1.33333 4.3181 4.3181 1.33333 8 1.33333C9.48971 1.33333 10.8711 1.83852 11.979 2.6953L12.9467 1.72765C11.6601 0.702758 9.92484 0 8 0C3.58172 0 0 3.58172 0 8C0 12.4183 3.58172 16 8 16C12.4183 16 16 12.4183 16 8H14.6667Z" fill="currentColor"/><path d="M12.6667 3.33331L8 8V1.33331" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Sync Logs
+                </button>
+                <button id="add-row-btn" class="modern-add-btn">
+                    <!-- Plus Icon SVG -->
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 3.33331V12.6666" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.33331 8H12.6666" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                    Add New Row
+                </button>
+            </div>
         </div>
 
-        <table id="actions-table">
-            <thead>
-                <tr>
-                    <th>Actions<div class="resizer"></div></th>
-                    <th>Vendor Name<div class="resizer"></div></th>
-                    <th>MRC No<div class="resizer"></div></th>
-                    <th>TIN No<div class="resizer"></div></th>
-                    <th>Item Name<div class="resizer"></div></th>
-                    <th>Purchase Date<div class="resizer"></div></th>
-                    <th>Unit<div class="resizer"></div></th>
-                    <th>Quantity<div class="resizer"></div></th>
-                    <th>Unit Price<div class="resizer"></div></th>
-                    <th>VAT %<div class="resizer"></div></th>
-                    <th>VAT Exclude<div class="resizer"></div></th>
-                    <th>Total VAT<div class="resizer"></div></th>
-                    <th>FS Number<div class="resizer"></div></th>
-                    <th>Subtotal<div class="resizer"></div></th>
-                </tr>
-            </thead>
-            <tbody>
-                <!-- Rows will be added here by JavaScript -->
-            </tbody>
-            <tfoot>
-                <tr id="summary-row">
-                    <td colspan="11"><strong>Summary</strong></td>
-                    <td id="summary-total-vat">0.00</td>
-                    <td></td> <!-- Empty cell for FS Number column -->
-                    <td id="summary-subtotal">0.00</td>
-                </tr>
-            </tfoot>
-        </table>
-        <!-- <button id="save-all-btn">Save All Records</button> -->
-    </div>
+        <!-- Table Wrapper for the "Excel" look -->
+        <div class="table-wrapper">
+            <div class="table-scroll-container">
+                <table id="actions-table">
+                    <thead>
+                        <tr>
+                            <!-- Sticky first column -->
+                            <th>Actions</th> 
+                            <th>Vendor Name</th>
+                            <th>MRC No</th>
+                            <th>TIN No</th>
+                            <th>Item Name</th>
+                            <th>Purchase Date</th>
+                            <th>Unit</th>
+                            <th>Quantity</th>
+                            <th>Unit Price</th>
+                            <th>VAT %</th>
+                            <th>VAT On/Off</th>
+                            <th>Base Total</th>
+                            <th>Total VAT</th>
+                            <th>FS Number</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Your workspace.js will populate this area -->
+                    </tbody>
+                    <tfoot>
+                        <tr id="summary-row">
+                            <td colspan="10">Summary</td>
+                            <td></td>
+                            <td id="summary-vat-exclude">0.00</td>
+                            <td id="summary-total-vat">0.00</td>
+                            <td>Totals</td>
+                            <td id="summary-subtotal">0.00</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+    </main>
 
-    <!-- Custom Notification Modal -->
+    <!-- Your existing Notification Modal (it will be styled by the new CSS) -->
     <div id="notification-modal" class="notification-modal">
         <div class="modal-content">
             <span class="close-button">&times;</span>
@@ -69,6 +93,7 @@
         </div>
     </div>
 
+    <!-- Your existing JS file - NO CHANGES NEEDED -->
     <script src="workspace.js"></script>
 </body>
 </html>
