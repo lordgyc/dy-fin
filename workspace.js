@@ -484,8 +484,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Fetch and display initial purchase records on page load
-    const fetchInitialRecords = async () => {
+    const reloadTableData = async () => {
         try {
             const response = await fetch('http://localhost:3000/last-10-purchase-records');
             const records = await response.json();
@@ -513,7 +512,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             console.error('Error fetching initial records:', error);
-            showNotification('Failed to load initial records.', 'error');
             // Even on error, provide one editable row
             const newRowHtml = createNewRowHTML();
             const tempDiv = document.createElement('div');
@@ -526,7 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    fetchInitialRecords();
+    reloadTableData();
 
     addRowBtn.addEventListener('click', () => {
         const newRowHtml = createNewRowHTML();
@@ -564,8 +562,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (response.ok) {
                 showNotification(result.message, 'success');
-                // Optionally, refetch initial records to update the display
-                // fetchInitialRecords(); 
+                // Refresh the table to reflect changes from sync
+                reloadTableData(); 
             } else {
                 showNotification(`Error syncing logs: ${result.message}`, 'error');
             }

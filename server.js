@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
+const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid'); // Import uuid
 const { sendLogToTelegram, fetchLogsFromTelegram } = require('./telegramBot'); // Import Telegram bot functions
 
@@ -84,6 +85,12 @@ module.exports = (userDataPath) => {
                   old_data TEXT, /* JSON string of old record data (for UPDATE/DELETE) */
                   new_data TEXT, /* JSON string of new record data (for INSERT/UPDATE) */
                   synced_to_bot INTEGER DEFAULT 0 /* 0 for not synced, 1 for synced */
+              );`);
+
+              // New Config table to store application settings like last synced Telegram update ID
+              db.run(`CREATE TABLE IF NOT EXISTS Config (
+                  key TEXT PRIMARY KEY,
+                  value TEXT
               );`);
 
               db.run(`CREATE TABLE IF NOT EXISTS Users (
@@ -293,15 +300,615 @@ module.exports = (userDataPath) => {
       res.send('Finance Management API is running!');
   });
 
-  app.get('/vendors', (req, res) => {
-      db.all('SELECT * FROM Vendors', (err, rows) => {
+  app.post("/addvendors", (req, res) => {
+    const { vendor_name, tin_number, mrc_numbers } = req.body;
+    const vendor_id = require('uuid').v4(); // generate unique id
+
+    db.run(
+        `INSERT INTO Vendors (vendor_id, vendor_name, tin_number) VALUES (?, ?, ?)`,
+        [vendor_id, vendor_name, tin_number],
+        function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+
+            // Insert MRC numbers if provided
+            if (mrc_numbers && Array.isArray(mrc_numbers)) {
+                const stmt = db.prepare(`INSERT INTO MRC_Numbers (mrc_id, vendor_id, mrc_number) VALUES (?, ?, ?)`);
+                mrc_numbers.forEach(mrc => {
+                    stmt.run([require('uuid').v4(), vendor_id, mrc]);
+                });
+                stmt.finalize();
+            }
+
+            // Log the activity
+            const log_id = uuidv4();
+            const timestamp = new Date().toISOString();
+            const action_type = 'INSERT';
+            const table_name = 'Vendors';
+            const record_id = vendor_id;
+            const new_data = JSON.stringify({ vendor_id, vendor_name, tin_number, mrc_numbers });
+
+            db.run(
+                `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, new_data) VALUES (?, ?, ?, ?, ?, ?)`,
+                [log_id, timestamp, action_type, table_name, record_id, new_data],
+                (logErr) => {
+                    if (logErr) {
+                        console.error('Error inserting into Activity_Logs for vendor add:', logErr.message);
+                    }
+                }
+            );
+
+            res.json({ message: "Vendor added", vendor_id });
+        }
+    );
+});
+app.put("/updatevendors/:vendor_id", (req, res) => {
+    const { vendor_id } = req.params;
+    const { vendor_name, tin_number, mrc_numbers } = req.body;
+
+    // First, fetch the existing vendor record for logging purposes
+    db.get(`SELECT v.vendor_id, v.vendor_name, v.tin_number, GROUP_CONCAT(m.mrc_number) AS mrc_numbers FROM Vendors v LEFT JOIN MRC_Numbers m ON v.vendor_id = m.vendor_id WHERE v.vendor_id = ? GROUP BY v.vendor_id, v.vendor_name, v.tin_number`, [vendor_id], (err, oldVendor) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!oldVendor) return res.status(404).json({ message: 'Vendor not found.' });
+
+        // Transform oldVendor.mrc_numbers from string to array
+        oldVendor.mrc_numbers = oldVendor.mrc_numbers ? oldVendor.mrc_numbers.split(',') : [];
+
+        db.run(
+            `UPDATE Vendors SET vendor_name = ?, tin_number = ? WHERE vendor_id = ?`,
+            [vendor_name, tin_number, vendor_id],
+            function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+
+                // Delete old MRC numbers
+                db.run(`DELETE FROM MRC_Numbers WHERE vendor_id = ?`, [vendor_id], function(err) {
+                    if (err) return res.status(500).json({ error: err.message });
+
+                    // Insert new MRC numbers
+                    if (mrc_numbers && Array.isArray(mrc_numbers)) {
+                        const stmt = db.prepare(`INSERT INTO MRC_Numbers (mrc_id, vendor_id, mrc_number) VALUES (?, ?, ?)`);
+                        mrc_numbers.forEach(mrc => {
+                            stmt.run([require('uuid').v4(), vendor_id, mrc]);
+                        });
+                        stmt.finalize();
+                    }
+
+                    // Fetch the updated vendor record for new_data in logs
+                    db.get(`SELECT v.vendor_id, v.vendor_name, v.tin_number, GROUP_CONCAT(m.mrc_number) AS mrc_numbers FROM Vendors v LEFT JOIN MRC_Numbers m ON v.vendor_id = m.vendor_id WHERE v.vendor_id = ? GROUP BY v.vendor_id, v.vendor_name, v.tin_number`, [vendor_id], (err, newVendor) => {
+                        if (err) {
+                            console.error('Error fetching new vendor data for logging:', err.message);
+                            return res.json({ message: "Vendor updated" }); // Proceed even if logging data fetch fails
+                        }
+                        if (newVendor) {
+                            newVendor.mrc_numbers = newVendor.mrc_numbers ? newVendor.mrc_numbers.split(',') : [];
+
+                            // Log the activity
+                            const log_id = uuidv4();
+                            const timestamp = new Date().toISOString();
+                            const action_type = 'UPDATE';
+                            const table_name = 'Vendors';
+                            const record_id = vendor_id;
+                            const old_data = JSON.stringify(oldVendor);
+                            const new_data = JSON.stringify(newVendor);
+
+                            db.run(
+                                `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data, new_data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                                [log_id, timestamp, action_type, table_name, record_id, old_data, new_data],
+                                (logErr) => {
+                                    if (logErr) {
+                                        console.error('Error inserting into Activity_Logs for vendor update:', logErr.message);
+                                    }
+                                }
+                            );
+                        }
+                        res.json({ message: "Vendor updated" });
+                    });
+                });
+            }
+        );
+    });
+});
+app.delete("/deletevendors/:vendor_id", (req, res) => {
+    const { vendor_id } = req.params;
+
+    db.get(`SELECT v.vendor_id, v.vendor_name, v.tin_number, GROUP_CONCAT(m.mrc_number) AS mrc_numbers FROM Vendors v LEFT JOIN MRC_Numbers m ON v.vendor_id = m.vendor_id WHERE v.vendor_id = ? GROUP BY v.vendor_id, v.vendor_name, v.tin_number`, [vendor_id], (err, oldVendor) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!oldVendor) return res.status(404).json({ message: 'Vendor not found.' });
+
+        oldVendor.mrc_numbers = oldVendor.mrc_numbers ? oldVendor.mrc_numbers.split(',') : [];
+
+        db.run(`DELETE FROM Vendors WHERE vendor_id = ?`, [vendor_id], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            if (this.changes === 0) return res.status(404).json({ message: 'Vendor not found for deletion.' });
+
+            // Log the activity
+            const log_id = uuidv4();
+            const timestamp = new Date().toISOString();
+            const action_type = 'DELETE';
+            const table_name = 'Vendors';
+            const record_id = vendor_id;
+            const old_data = JSON.stringify(oldVendor);
+
+            db.run(
+                `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data) VALUES (?, ?, ?, ?, ?, ?)`,
+                [log_id, timestamp, action_type, table_name, record_id, old_data],
+                (logErr) => {
+                    if (logErr) {
+                        console.error('Error inserting into Activity_Logs for vendor delete:', logErr.message);
+                    }
+                }
+            );
+            res.json({ message: "Vendor deleted" });
+        });
+    });
+});
+
+app.get('/vendors', (req, res) => {
+    const query = `
+        SELECT v.vendor_id, v.vendor_name, v.tin_number, 
+               GROUP_CONCAT(m.mrc_number) AS mrc_numbers
+        FROM Vendors v
+        LEFT JOIN MRC_Numbers m ON v.vendor_id = m.vendor_id
+        GROUP BY v.vendor_id, v.vendor_name, v.tin_number
+    `;
+    db.all(query, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: err.message });
+        // Convert mrc_numbers string to array
+        const result = rows.map(r => ({
+            vendor_id: r.vendor_id,
+            vendor_name: r.vendor_name,
+            tin_number: r.tin_number,
+            mrc_numbers: r.mrc_numbers ? r.mrc_numbers.split(',') : []
+        }));
+        res.json(result);
+    });
+});
+
+  // CATEGORIES Endpoints
+  app.post('/categories', (req, res) => {
+      const { category_name } = req.body;
+      if (!category_name) {
+          return res.status(400).json({ error: 'Category name is required.' });
+      }
+      const category_id = uuidv4();
+      db.run(`INSERT INTO Categories (category_id, category_name) VALUES (?, ?)`, [category_id, category_name], function(err) {
           if (err) {
-              res.status(500).json({ error: err.message });
-          } else {
-              res.json(rows);
+              console.error('Error adding category:', err.message);
+              return res.status(500).json({ error: err.message });
           }
+          // Log the activity
+          const log_id = uuidv4();
+          const timestamp = new Date().toISOString();
+          const action_type = 'INSERT';
+          const table_name = 'Categories';
+          const record_id = category_id;
+          const new_data = JSON.stringify({ category_id, category_name });
+
+          db.run(
+              `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, new_data) VALUES (?, ?, ?, ?, ?, ?)`,
+              [log_id, timestamp, action_type, table_name, record_id, new_data],
+              (logErr) => {
+                  if (logErr) {
+                      console.error('Error inserting into Activity_Logs for category add:', logErr.message);
+                  }
+              }
+          );
+          res.status(201).json({ message: 'Category added successfully', category_id });
       });
   });
+
+  app.get('/categories', (req, res) => {
+      db.all(`SELECT * FROM Categories`, [], (err, rows) => {
+          if (err) {
+              console.error('Error fetching categories:', err.message);
+              return res.status(500).json({ error: err.message });
+          }
+          res.json(rows);
+      });
+  });
+
+  app.put('/categories/:category_id', (req, res) => {
+      const { category_id } = req.params;
+      const { category_name } = req.body;
+      if (!category_name) {
+          return res.status(400).json({ error: 'Category name is required.' });
+      }
+      
+      db.get(`SELECT * FROM Categories WHERE category_id = ?`, [category_id], (err, oldCategory) => {
+          if (err) {
+              console.error('Error fetching old category data for logging:', err.message);
+              return res.status(500).json({ error: err.message });
+          }
+          if (!oldCategory) {
+              return res.status(404).json({ message: 'Category not found.' });
+          }
+
+          db.run(`UPDATE Categories SET category_name = ? WHERE category_id = ?`, [category_name, category_id], function(err) {
+              if (err) {
+                  console.error('Error updating category:', err.message);
+                  return res.status(500).json({ error: err.message });
+              }
+              if (this.changes === 0) {
+                  return res.status(404).json({ message: 'Category not found or no changes made.' });
+              }
+
+              db.get(`SELECT * FROM Categories WHERE category_id = ?`, [category_id], (err, newCategory) => {
+                  if (err) {
+                      console.error('Error fetching new category data for logging:', err.message);
+                      return res.json({ message: 'Category updated successfully' });
+                  }
+                  
+                  // Log the activity
+                  const log_id = uuidv4();
+                  const timestamp = new Date().toISOString();
+                  const action_type = 'UPDATE';
+                  const table_name = 'Categories';
+                  const record_id = category_id;
+                  const old_data = JSON.stringify(oldCategory);
+                  const new_data = JSON.stringify(newCategory);
+
+                  db.run(
+                      `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data, new_data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                      [log_id, timestamp, action_type, table_name, record_id, old_data, new_data],
+                      (logErr) => {
+                          if (logErr) {
+                              console.error('Error inserting into Activity_Logs for category update:', logErr.message);
+                          }
+                      }
+                  );
+                  res.json({ message: 'Category updated successfully' });
+              });
+          });
+      });
+  });
+
+  app.delete('/categories/:category_id', (req, res) => {
+      const { category_id } = req.params;
+      
+      db.get(`SELECT * FROM Categories WHERE category_id = ?`, [category_id], (err, oldCategory) => {
+          if (err) {
+              console.error('Error fetching old category data for logging:', err.message);
+              return res.status(500).json({ error: err.message });
+          }
+          if (!oldCategory) {
+              return res.status(404).json({ message: 'Category not found.' });
+          }
+
+          db.run(`DELETE FROM Categories WHERE category_id = ?`, [category_id], function(err) {
+              if (err) {
+                  console.error('Error deleting category:', err.message);
+                  return res.status(500).json({ error: err.message });
+              }
+              if (this.changes === 0) {
+                  return res.status(404).json({ message: 'Category not found.' });
+              }
+
+              // Log the activity
+              const log_id = uuidv4();
+              const timestamp = new Date().toISOString();
+              const action_type = 'DELETE';
+              const table_name = 'Categories';
+              const record_id = category_id;
+              const old_data = JSON.stringify(oldCategory);
+
+              db.run(
+                  `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data) VALUES (?, ?, ?, ?, ?, ?)`,
+                  [log_id, timestamp, action_type, table_name, record_id, old_data],
+                  (logErr) => {
+                      if (logErr) {
+                          console.error('Error inserting into Activity_Logs for category delete:', logErr.message);
+                      }
+                  }
+              );
+              res.json({ message: 'Category deleted successfully' });
+          });
+      });
+  });
+
+    // SUBCATEGORIES Endpoints
+    app.post('/subcategories', (req, res) => {
+        const { category_id, subcategory_name } = req.body;
+        if (!category_id || !subcategory_name) {
+            return res.status(400).json({ error: 'Category ID and subcategory name are required.' });
+        }
+        const subcategory_id = uuidv4();
+        db.run(`INSERT INTO Subcategories (subcategory_id, category_id, subcategory_name) VALUES (?, ?, ?)`, [subcategory_id, category_id, subcategory_name], function(err) {
+            if (err) {
+                console.error('Error adding subcategory:', err.message);
+                return res.status(500).json({ error: err.message });
+            }
+            // Log the activity
+            const log_id = uuidv4();
+            const timestamp = new Date().toISOString();
+            const action_type = 'INSERT';
+            const table_name = 'Subcategories';
+            const record_id = subcategory_id;
+            const new_data = JSON.stringify({ subcategory_id, category_id, subcategory_name });
+
+            db.run(
+                `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, new_data) VALUES (?, ?, ?, ?, ?, ?)`,
+                [log_id, timestamp, action_type, table_name, record_id, new_data],
+                (logErr) => {
+                    if (logErr) {
+                        console.error('Error inserting into Activity_Logs for subcategory add:', logErr.message);
+                    }
+                }
+            );
+            res.status(201).json({ message: 'Subcategory added successfully', subcategory_id });
+        });
+    });
+
+    app.get('/subcategories/:category_id', (req, res) => {
+        const { category_id } = req.params;
+        db.all(`SELECT * FROM Subcategories WHERE category_id = ?`, [category_id], (err, rows) => {
+            if (err) {
+                console.error('Error fetching subcategories:', err.message);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json(rows);
+        });
+    });
+
+    app.put('/subcategories/:subcategory_id', (req, res) => {
+        const { subcategory_id } = req.params;
+        const { subcategory_name, category_id } = req.body;
+        if (!subcategory_name || !category_id) {
+            return res.status(400).json({ error: 'Subcategory name and category ID are required.' });
+        }
+
+        db.get(`SELECT * FROM Subcategories WHERE subcategory_id = ?`, [subcategory_id], (err, oldSubcategory) => {
+            if (err) {
+                console.error('Error fetching old subcategory data for logging:', err.message);
+                return res.status(500).json({ error: err.message });
+            }
+            if (!oldSubcategory) {
+                return res.status(404).json({ message: 'Subcategory not found.' });
+            }
+
+            db.run(`UPDATE Subcategories SET subcategory_name = ?, category_id = ? WHERE subcategory_id = ?`, [subcategory_name, category_id, subcategory_id], function(err) {
+                if (err) {
+                    console.error('Error updating subcategory:', err.message);
+                    return res.status(500).json({ error: err.message });
+                }
+                if (this.changes === 0) {
+                    return res.status(404).json({ message: 'Subcategory not found or no changes made.' });
+                }
+
+                db.get(`SELECT * FROM Subcategories WHERE subcategory_id = ?`, [subcategory_id], (err, newSubcategory) => {
+                    if (err) {
+                        console.error('Error fetching new subcategory data for logging:', err.message);
+                        return res.json({ message: 'Subcategory updated successfully' });
+                    }
+                    
+                    // Log the activity
+                    const log_id = uuidv4();
+                    const timestamp = new Date().toISOString();
+                    const action_type = 'UPDATE';
+                    const table_name = 'Subcategories';
+                    const record_id = subcategory_id;
+                    const old_data = JSON.stringify(oldSubcategory);
+                    const new_data = JSON.stringify(newSubcategory);
+
+                    db.run(
+                        `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data, new_data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [log_id, timestamp, action_type, table_name, record_id, old_data, new_data],
+                        (logErr) => {
+                            if (logErr) {
+                                console.error('Error inserting into Activity_Logs for subcategory update:', logErr.message);
+                            }
+                        }
+                    );
+                    res.json({ message: 'Subcategory updated successfully' });
+                });
+            });
+        });
+    });
+
+    app.delete('/subcategories/:subcategory_id', (req, res) => {
+        const { subcategory_id } = req.params;
+
+        db.get(`SELECT * FROM Subcategories WHERE subcategory_id = ?`, [subcategory_id], (err, oldSubcategory) => {
+            if (err) {
+                console.error('Error fetching old subcategory data for logging:', err.message);
+                return res.status(500).json({ error: err.message });
+            }
+            if (!oldSubcategory) {
+                return res.status(404).json({ message: 'Subcategory not found.' });
+            }
+
+            db.run(`DELETE FROM Subcategories WHERE subcategory_id = ?`, [subcategory_id], function(err) {
+                if (err) {
+                    console.error('Error deleting subcategory:', err.message);
+                    return res.status(500).json({ error: err.message });
+                }
+                if (this.changes === 0) {
+                    return res.status(404).json({ message: 'Subcategory not found.' });
+                }
+
+                // Log the activity
+                const log_id = uuidv4();
+                const timestamp = new Date().toISOString();
+                const action_type = 'DELETE';
+                const table_name = 'Subcategories';
+                const record_id = subcategory_id;
+                const old_data = JSON.stringify(oldSubcategory);
+
+                db.run(
+                    `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data) VALUES (?, ?, ?, ?, ?, ?)`,
+                    [log_id, timestamp, action_type, table_name, record_id, old_data],
+                    (logErr) => {
+                        if (logErr) {
+                            console.error('Error inserting into Activity_Logs for subcategory delete:', logErr.message);
+                        }
+                    }
+                );
+                res.json({ message: 'Subcategory deleted successfully' });
+            });
+        });
+    });
+
+    // ITEMS Endpoints
+    app.post('/items', (req, res) => {
+        const { item_name, category_id, subcategory_id, unit_price, description } = req.body;
+        if (!item_name || !category_id || !unit_price) {
+            return res.status(400).json({ error: 'Item name, category ID, and unit price are required.' });
+        }
+        const item_id = uuidv4();
+        db.run(`INSERT INTO Items (item_id, item_name, category_id, subcategory_id, unit_price, description) VALUES (?, ?, ?, ?, ?, ?)`, 
+            [item_id, item_name, category_id, subcategory_id, unit_price, description], function(err) {
+            if (err) {
+                console.error('Error adding item:', err.message);
+                return res.status(500).json({ error: err.message });
+            }
+            // Log the activity
+            const log_id = uuidv4();
+            const timestamp = new Date().toISOString();
+            const action_type = 'INSERT';
+            const table_name = 'Items';
+            const record_id = item_id;
+            const new_data = JSON.stringify({ item_id, item_name, category_id, subcategory_id, unit_price, description });
+
+            db.run(
+                `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, new_data) VALUES (?, ?, ?, ?, ?, ?)`,
+                [log_id, timestamp, action_type, table_name, record_id, new_data],
+                (logErr) => {
+                    if (logErr) {
+                        console.error('Error inserting into Activity_Logs for item add:', logErr.message);
+                    }
+                }
+            );
+            res.status(201).json({ message: 'Item added successfully', item_id });
+        });
+    });
+
+    app.get('/items', (req, res) => {
+        const { category_id, subcategory_id } = req.query;
+        let sql = `SELECT i.item_id, i.item_name, i.unit_price, i.description, c.category_name, s.subcategory_name 
+                   FROM Items i
+                   JOIN Categories c ON i.category_id = c.category_id
+                   LEFT JOIN Subcategories s ON i.subcategory_id = s.subcategory_id`;
+        const params = [];
+        const conditions = [];
+
+        if (category_id) {
+            conditions.push(`i.category_id = ?`);
+            params.push(category_id);
+        }
+        if (subcategory_id) {
+            conditions.push(`i.subcategory_id = ?`);
+            params.push(subcategory_id);
+        }
+
+        if (conditions.length > 0) {
+            sql += ` WHERE ` + conditions.join(` AND `);
+        }
+
+        db.all(sql, params, (err, rows) => {
+            if (err) {
+                console.error('Error fetching items:', err.message);
+                return res.status(500).json({ error: err.message });
+            }
+            res.json(rows);
+        });
+    });
+
+    app.put('/items/:item_id', (req, res) => {
+        const { item_id } = req.params;
+        const { item_name, category_id, subcategory_id, unit_price, description } = req.body;
+        if (!item_name || !category_id || !unit_price) {
+            return res.status(400).json({ error: 'Item name, category ID, and unit price are required.' });
+        }
+
+        db.get(`SELECT * FROM Items WHERE item_id = ?`, [item_id], (err, oldItem) => {
+            if (err) {
+                console.error('Error fetching old item data for logging:', err.message);
+                return res.status(500).json({ error: err.message });
+            }
+            if (!oldItem) {
+                return res.status(404).json({ message: 'Item not found.' });
+            }
+
+            db.run(`UPDATE Items SET item_name = ?, category_id = ?, subcategory_id = ?, unit_price = ?, description = ? WHERE item_id = ?`, 
+                [item_name, category_id, subcategory_id, unit_price, description, item_id], function(err) {
+                if (err) {
+                    console.error('Error updating item:', err.message);
+                    return res.status(500).json({ error: err.message });
+                }
+                if (this.changes === 0) {
+                    return res.status(404).json({ message: 'Item not found or no changes made.' });
+                }
+
+                db.get(`SELECT * FROM Items WHERE item_id = ?`, [item_id], (err, newItem) => {
+                    if (err) {
+                        console.error('Error fetching new item data for logging:', err.message);
+                        return res.json({ message: 'Item updated successfully' });
+                    }
+                    
+                    // Log the activity
+                    const log_id = uuidv4();
+                    const timestamp = new Date().toISOString();
+                    const action_type = 'UPDATE';
+                    const table_name = 'Items';
+                    const record_id = item_id;
+                    const old_data = JSON.stringify(oldItem);
+                    const new_data = JSON.stringify(newItem);
+
+                    db.run(
+                        `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data, new_data) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                        [log_id, timestamp, action_type, table_name, record_id, old_data, new_data],
+                        (logErr) => {
+                            if (logErr) {
+                                console.error('Error inserting into Activity_Logs for item update:', logErr.message);
+                            }
+                        }
+                    );
+                    res.json({ message: 'Item updated successfully' });
+                });
+            });
+        });
+    });
+
+    app.delete('/items/:item_id', (req, res) => {
+        const { item_id } = req.params;
+
+        db.get(`SELECT * FROM Items WHERE item_id = ?`, [item_id], (err, oldItem) => {
+            if (err) {
+                console.error('Error fetching old item data for logging:', err.message);
+                return res.status(500).json({ error: err.message });
+            }
+            if (!oldItem) {
+                return res.status(404).json({ message: 'Item not found.' });
+            }
+
+            db.run(`DELETE FROM Items WHERE item_id = ?`, [item_id], function(err) {
+                if (err) {
+                    console.error('Error deleting item:', err.message);
+                    return res.status(500).json({ error: err.message });
+                }
+                if (this.changes === 0) {
+                    return res.status(404).json({ message: 'Item not found.' });
+                }
+
+                // Log the activity
+                const log_id = uuidv4();
+                const timestamp = new Date().toISOString();
+                const action_type = 'DELETE';
+                const table_name = 'Items';
+                const record_id = item_id;
+                const old_data = JSON.stringify(oldItem);
+
+                db.run(
+                    `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data) VALUES (?, ?, ?, ?, ?, ?)`,
+                    [log_id, timestamp, action_type, table_name, record_id, old_data],
+                    (logErr) => {
+                        if (logErr) {
+                            console.error('Error inserting into Activity_Logs for item delete:', logErr.message);
+                        }
+                    }
+                );
+                res.json({ message: 'Item deleted successfully' });
+            });
+        });
+    });
 
   // Endpoint to search vendors for autocomplete and get their TIN and MRC numbers
   app.get('/search-vendors', (req, res) => {
@@ -337,6 +944,68 @@ module.exports = (userDataPath) => {
               res.json(vendors);
           }
       });
+  });
+  app.get('/export/vat-report', (req, res) => {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+        return res.status(400).send('Start date and end date are required for export.');
+    }
+
+    const sql = `
+        SELECT
+            v.vendor_name AS "Vendor Name", 
+            v.tin_number AS "TIN No",
+            pr.purchase_date AS "Purchase Date", 
+            i.item_name AS "Item Name",
+            pr.quantity AS "Quantity", 
+            pr.unit_price AS "Unit Price", 
+            pr.vat_percentage AS "VAT %",
+            pr.vat_amount AS "VAT Amount",
+            (pr.total_amount - pr.vat_amount) AS "Base Total",
+            pr.total_amount AS "Total Amount"
+        FROM Purchase_Records pr
+        JOIN Vendors v ON pr.vendor_id = v.vendor_id
+        JOIN Items i ON pr.item_id = i.item_id
+        WHERE DATE(pr.purchase_date) BETWEEN ? AND ?
+        ORDER BY v.vendor_name, pr.purchase_date;
+    `;
+
+    db.all(sql, [startDate, endDate], (err, rows) => {
+        if (err) {
+            console.error('Error fetching data for Excel export:', err.message);
+            return res.status(500).send('Failed to fetch data for report.');
+        }
+
+        try {
+            // 1. Create a new workbook and a worksheet
+            const workbook = XLSX.utils.book_new();
+            const worksheet = XLSX.utils.json_to_sheet(rows);
+
+            // 2. Append the worksheet to the workbook
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'VAT Report');
+
+            // 3. Generate a buffer (a temporary binary representation of the file)
+            const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+
+            // 4. Set headers to tell the browser to download the file
+            res.setHeader(
+                'Content-Disposition',
+                `attachment; filename="VAT_Report_${startDate}_to_${endDate}.xlsx"`
+            );
+            res.setHeader(
+                'Content-Type',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            );
+
+            // 5. Send the file buffer as the response
+            res.send(buffer);
+
+        } catch (error) {
+            console.error('Failed to generate Excel file:', error);
+            res.status(500).send('Error generating Excel file.');
+        }
+    });
   });
 
   // Endpoint to search items for autocomplete and get their unit price
@@ -467,8 +1136,13 @@ module.exports = (userDataPath) => {
 
   // Endpoint for syncing logs with Telegram bot
   app.post('/sync-logs', async (req, res) => {
+      let sentLogsCount = 0;
+      let fetchedLogsCount = 0;
+      let syncMessage = '';
+      let errorDetails = null;
+
       try {
-          // 1. Fetch unsynced logs
+          // 1. Fetch and send unsynced logs
           const unsyncedLogs = await new Promise((resolve, reject) => {
               db.all(`SELECT * FROM Activity_Logs WHERE synced_to_bot = 0`, [], (err, rows) => {
                   if (err) reject(err);
@@ -479,30 +1153,114 @@ module.exports = (userDataPath) => {
           if (unsyncedLogs.length > 0) {
               const success = await sendLogToTelegram(unsyncedLogs);
               if (success) {
-                  // 2. Mark logs as synced if successfully sent
                   const logIdsToMarkSynced = unsyncedLogs.map(log => log.log_id);
                   await new Promise((resolve, reject) => {
-                      // Use IN clause to update multiple logs at once
                       db.run(`UPDATE Activity_Logs SET synced_to_bot = 1 WHERE log_id IN (${logIdsToMarkSynced.map(() => '?').join(',')})`, logIdsToMarkSynced, (err) => {
                           if (err) reject(err);
                           else resolve();
                       });
                   });
-                  res.json({ message: `Synced ${logIdsToMarkSynced.length} logs with Telegram.`, sentCount: logIdsToMarkSynced.length });
+                  sentLogsCount = logIdsToMarkSynced.length;
+                  syncMessage += `Synced ${sentLogsCount} logs with Telegram. `;
+                  console.log(`Synced ${sentLogsCount} logs with Telegram.`);
               } else {
-                  res.status(500).json({ error: 'Failed to send some logs to Telegram.' });
+                  syncMessage += 'Failed to send some logs to Telegram. ';
+                  errorDetails = 'Failed to send unsynced logs.';
               }
           } else {
-              res.json({ message: 'No unsynced logs to send.', sentCount: 0 });
+              syncMessage += 'No unsynced logs to send. ';
           }
 
-          // 3. Fetch new logs from Telegram (placeholder for now)
-          // const newLogs = await fetchLogsFromTelegram(); 
-          // TODO: Implement logic to apply newLogs to local DB with conflict resolution
+          let fetchedLogsCount = 0;
+          const lastFetchedUpdateId = await new Promise((resolve, reject) => {
+              db.get(`SELECT value FROM Config WHERE key = 'last_fetched_telegram_update_id'`, (err, row) => {
+                  if (err) reject(err);
+                  else resolve(row ? parseInt(row.value, 10) : 0); // Default to 0 if not found
+              });
+          });
+          const { logs: incomingLogs, newLastUpdateId } = await fetchLogsFromTelegram(lastFetchedUpdateId);
+          
+          if (incomingLogs.length > 0) {
+              for (const log of incomingLogs) {
+                  try {
+                      const new_data = log.new_data ? JSON.parse(log.new_data) : null;
+                      const old_data = log.old_data ? JSON.parse(log.old_data) : null;
+
+                      if (log.table_name === 'Purchase_Records') {
+                          if (log.action_type === 'INSERT' && new_data) {
+                              const existingRecord = await new Promise((resolve, reject) => {
+                                  db.get(`SELECT purchase_id FROM Purchase_Records WHERE purchase_id = ?`, [log.record_id], (err, row) => {
+                                      if (err) reject(err);
+                                      else resolve(row);
+                                  });
+                              });
+                              if (!existingRecord) {
+                                  await new Promise((resolve, reject) => {
+                                      db.run(`INSERT INTO Purchase_Records (purchase_id, vendor_id, item_id, purchase_date, unit, quantity, unit_price, vat_amount, fs_number, total_amount, vat_percentage, mrc_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                          [log.record_id, new_data.vendorId, new_data.itemId, new_data.purchaseDate, new_data.unit, new_data.quantity, new_data.unitPrice, new_data.totalVat, new_data.fsNumber, (new_data.baseTotal + new_data.totalVat), new_data.vatPercentage, new_data.mrcNo],
+                                          (err) => {
+                                              if (err) reject(err);
+                                              else resolve();
+                                          }
+                                      );
+                                  });
+                                  fetchedLogsCount++;
+                                  console.log(`Applied INSERT for Purchase_Records: ${log.record_id}`);
+                              } else {
+                                  console.log(`Skipped INSERT for existing record: ${log.record_id}`);
+                              }
+                          } else if (log.action_type === 'DELETE') {
+                              await new Promise((resolve, reject) => {
+                                  db.run(`DELETE FROM Purchase_Records WHERE purchase_id = ?`, [log.record_id], (err) => {
+                                      if (err) reject(err);
+                                      else resolve();
+                                  });
+                              });
+                              fetchedLogsCount++;
+                              console.log(`Applied DELETE for Purchase_Records: ${log.record_id}`);
+                          } // TODO: Handle UPDATE for Purchase_Records if rows become editable
+                      }
+                  } catch (applyError) {
+                      console.error(`Error applying incoming log ${log.log_id}:`, applyError.message);
+                      errorDetails = errorDetails ? `${errorDetails}; Error applying log ${log.log_id}: ${applyError.message}` : `Error applying log ${log.log_id}: ${applyError.message}`;
+                  }
+              }
+              syncMessage += `Fetched ${incomingLogs.length} updates from Telegram. Applied ${fetchedLogsCount} logs. `;
+          } else {
+              syncMessage += `No new updates fetched from Telegram (Last update ID: ${lastFetchedUpdateId}). `;
+          }
+          
+          if (newLastUpdateId > lastFetchedUpdateId) {
+              await new Promise((resolve, reject) => {
+                  db.run(`INSERT OR REPLACE INTO Config (key, value) VALUES (?, ?)`, ['last_fetched_telegram_update_id', newLastUpdateId.toString()], (err) => {
+                      if (err) reject(err);
+                      else resolve();
+                  });
+              });
+              console.log(`Updated last_fetched_telegram_update_id to ${newLastUpdateId}`);
+          }
+
+          if (errorDetails) {
+              res.status(500).json({ message: `Sync completed with errors: ${syncMessage}`, sentCount: sentLogsCount, fetchedCount: fetchedLogsCount, error: errorDetails });
+          } else {
+              // Final consolidated success message
+              let finalMessage = `Sync completed: ${sentLogsCount} logs sent. `;
+              if (incomingLogs.length > 0) {
+                  finalMessage += `Fetched ${incomingLogs.length} updates from Telegram. `;
+                  if (fetchedLogsCount > 0) {
+                      finalMessage += `Applied ${fetchedLogsCount} incoming logs.`;
+                  } else {
+                      finalMessage += `No new records applied from fetched updates.`;
+                  }
+              } else {
+                  finalMessage += `No new updates fetched from Telegram.`;
+              }
+              res.json({ message: finalMessage, sentCount: sentLogsCount, fetchedCount: fetchedLogsCount });
+          }
 
       } catch (error) {
-          console.error('Error during log sync:', error);
-          res.status(500).json({ error: 'Failed to sync logs.', details: error.message });
+          console.error('Unhandled error during log sync:', error);
+          res.status(500).json({ error: 'Unhandled error during log sync.', details: error.message });
       }
   });
 
@@ -567,6 +1325,58 @@ module.exports = (userDataPath) => {
                   });
               });
           });
+      });
+  });
+  app.get('/reports/jv',(req,res) =>{
+    const {singledate} = req.query
+    if(!singledate){
+        return res.status(400).json({error: "selected a date please"})
+    }
+    const sql = `SELECT 
+                    i.item_name,
+                    p.total_amount
+                FROM Purchase_Records p
+                JOIN Items i ON p.item_id = i.item_id
+                WHERE DATE(p.purchase_date) = ?;
+`;
+        db.all(sql, [singledate], (err, rows) => {
+            if (err) {
+                console.error('Error fetching VAT report:', err.message);
+                res.status(500).json({ error: 'Failed to fetch VAT report.' });
+            } else {
+                res.json(rows);
+            }
+});         
+})
+  // New endpoint for VAT Report
+  app.get('/reports/vat', (req, res) => {
+      const { startDate, endDate } = req.query;
+
+      if (!startDate || !endDate) {
+          return res.status(400).json({ error: 'Start date and end date are required.' });
+      }
+
+      const finalEndDate = endDate;
+
+      const sql = `
+          SELECT
+              pr.purchase_id, pr.purchase_date, pr.quantity, pr.unit_price, pr.vat_amount,
+              pr.fs_number, pr.total_amount, pr.vat_percentage, pr.mrc_number,
+              v.vendor_name, v.tin_number, i.item_name
+          FROM Purchase_Records pr
+          JOIN Vendors v ON pr.vendor_id = v.vendor_id
+          JOIN Items i ON pr.item_id = i.item_id
+          WHERE DATE(pr.purchase_date) BETWEEN ? AND ?
+          ORDER BY v.vendor_name, pr.purchase_date;
+      `;
+
+      db.all(sql, [startDate, finalEndDate], (err, rows) => {
+          if (err) {
+              console.error('Error fetching VAT report:', err.message);
+              res.status(500).json({ error: 'Failed to fetch VAT report.' });
+          } else {
+              res.json(rows);
+          }
       });
   });
 

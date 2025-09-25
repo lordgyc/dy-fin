@@ -38,7 +38,7 @@ body {
   display: flex;
   align-items: center;
   border-bottom: 1px solid hsl(var(--border));
-  background-image: linear-gradient(to right, rgba(6, 182, 212, 0.9),rgba(192, 38, 211, 0.9));
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.9),rgba(255, 255, 255, 0.9));
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
@@ -104,6 +104,37 @@ body {
 @media (min-width: 500px) { .navigation-panel { grid-template-columns: 1fr 1fr; } }
 @media (min-width: 900px) { .navigation-panel { grid-template-columns: 1fr; } }
 @media (min-width: 1200px) { .navigation-panel { grid-template-columns: 1fr 1fr; } }
+
+.header-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+  justify-content: flex-end; /* Align to the right */
+}
+
+.nav-action-btn, .report-action-btn, .management-action-btn {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  padding: 0.6rem 1rem; border: none; border-radius: var(--radius);
+  font-weight: 500; box-shadow: 0 1px 2px 0 rgba(0,0,0,0.1);
+  cursor: pointer; transition: background-color 0.2s;
+}
+
+.nav-action-btn {
+    background-color: hsl(var(--primary)); color: hsl(var(--primary-foreground));
+}
+.nav-action-btn:hover { background-color: hsl(var(--primary-hover)); }
+
+.report-action-btn {
+    background-color: hsl(210, 20%, 96%); /* Light background for reports */
+    color: hsl(var(--foreground));
+}
+.report-action-btn:hover { background-color: hsl(210, 20%, 90%); }
+
+.management-action-btn {
+    background-color: hsl(48, 96%, 60%); /* Amber for management */
+    color: hsl(var(--foreground));
+}
+.management-action-btn:hover { background-color: hsl(48, 96%, 50%); }
 
 .nav-button {
   position: relative; overflow: hidden; padding: 1.5rem; border-radius: var(--radius);
@@ -194,6 +225,40 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
 }
 .page-header h1 { margin: 0; font-size: 1.75rem; font-weight: 700; }
 .page-header .subtitle { margin: 0.1rem 0 0; color: hsl(var(--muted-foreground)); }
+.report-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+.report-date-input {
+  padding: 0.6rem 1rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background-color: hsl(var(--card));
+  color: hsl(var(--foreground));
+  font-size: 1rem;
+}
+.ethiopian-month-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.month-nav-btn {
+    background-color: hsl(var(--muted));
+    color: hsl(var(--muted-foreground));
+    border: none;
+    border-radius: var(--radius);
+    padding: 0.4rem 0.8rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+.month-nav-btn:hover { background-color: hsl(var(--muted-foreground)); color: hsl(var(--background)); }
+.current-ethiopian-month-display {
+    font-weight: 600;
+    color: hsl(var(--foreground));
+}
+
 .modern-add-btn {
   display: inline-flex; align-items: center; gap: 0.5rem;
   padding: 0.6rem 1rem; border: none; border-radius: var(--radius);

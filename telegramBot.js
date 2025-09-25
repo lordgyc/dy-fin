@@ -61,29 +61,71 @@ Timestamp: ${escapeMarkdownV2(timestamp)}`;
     }
 };
 
-// Placeholder for fetching logs from Telegram (to be implemented later)
+// Function to fetch logs from Telegram
 const fetchLogsFromTelegram = async (lastFetchedUpdateId = 0) => {
     if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID || TELEGRAM_BOT_TOKEN === 'YOUR_TELEGRAM_BOT_TOKEN' || TELEGRAM_CHAT_ID === 'YOUR_TELEGRAM_CHAT_ID') {
         console.error('Telegram bot token or chat ID is not properly configured. Cannot fetch logs.');
-        return [];
+        return { logs: [], newLastUpdateId: lastFetchedUpdateId };
     }
+
+    let allFetchedLogs = [];
+    let newLastUpdateId = lastFetchedUpdateId;
 
     try {
         const response = await telegramApi.get('/getUpdates', {
             params: {
-                offset: lastFetchedUpdateId + 1,
-                timeout: 10, // Long polling timeout
+                offset: lastFetchedUpdateId > 0 ? lastFetchedUpdateId + 1 : 0, // Start from the next update
+                timeout: 30, // Long polling timeout for better real-time updates
+                allowed_updates: ['message'], // Only interested in messages
             }
         });
         
         const updates = response.data.result;
-        // Process updates to extract log entries if any. This is highly dependent on how you send logs from other devices.
-        // For now, this is a placeholder.
         console.log(`Fetched ${updates.length} updates from Telegram.`);
-        return updates; // Return raw updates for now
+        console.log('Raw Telegram updates:', JSON.stringify(updates, null, 2)); // Detailed log of updates
+
+        for (const update of updates) {
+            newLastUpdateId = Math.max(newLastUpdateId, update.update_id);
+
+            if (update.message && update.message.document) {
+                // Check if it's a JSON file from our system (heuristic: filename or caption)
+                const document = update.message.document;
+                console.log('Detected document in update:', JSON.stringify(document, null, 2)); // Log document details
+                if (document.file_name && document.file_name.startsWith('activity_logs_batch_') && document.file_name.endsWith('.json')) {
+                    console.log(`Found a potential log batch file: ${document.file_name}`);
+
+                    // Get file path from Telegram
+                    const fileInfoResponse = await telegramApi.get(`/getFile?file_id=${document.file_id}`);
+                    const filePath = fileInfoResponse.data.result.file_path;
+                    const fileUrl = `https://api.telegram.org/file/bot${TELEGRAM_BOT_TOKEN}/${filePath}`;
+
+                    // Download the file content
+                    const fileContentResponse = await axios.get(fileUrl, { responseType: 'text' });
+                    const logData = fileContentResponse.data;
+
+                    try {
+                        const parsedLogs = JSON.parse(logData);
+                        if (Array.isArray(parsedLogs)) {
+                            allFetchedLogs = allFetchedLogs.concat(parsedLogs);
+                            console.log(`Successfully parsed ${parsedLogs.length} logs from ${document.file_name}`);
+                        } else {
+                            console.warn(`Downloaded file ${document.file_name} is not an array of logs.`);
+                        }
+                    } catch (parseError) {
+                        console.error(`Error parsing JSON from ${document.file_name}:`, parseError.message);
+                    }
+                } else {
+                    console.warn(`Document file name did not match expected pattern: ${document.file_name}`);
+                }
+            } else if (update.message) {
+                console.log('Received non-document message, type:', update.message.text ? 'text' : 'other'); // Log non-document messages
+            }
+        }
+        console.log(`Final allFetchedLogs before return: ${allFetchedLogs.length} logs.`, JSON.stringify(allFetchedLogs, null, 2)); // Final log
+        return { logs: allFetchedLogs, newLastUpdateId };
     } catch (error) {
         console.error('Error fetching logs from Telegram:', error.response?.data || error.message);
-        return [];
+        return { logs: [], newLastUpdateId: lastFetchedUpdateId };
     }
 };
 

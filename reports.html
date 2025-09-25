@@ -1,28 +1,296 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reports</title>
-    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="rstyle.css"> <!-- Link to the new reports stylesheet -->
+    <script type="text/javascript" src="https://unpkg.com/xlsx@0.15.1/dist/xlsx.full.min.js"></script>
 </head>
 <body>
-    <div class="header">
-        <i class="fas fa-money-bill-wave money-icon"></i>
-        <span class="header-text">DY Finance Manager</span>
+
+    <header class="header">
+        <a href="/" class="logo-link">
+            <span class="logo-icon">ƒ</span>
+            <span class="logo-title">dy finance</span>
+        </a>
+        <div class="header-actions">
+            <button id="back-to-login-btn" class="nav-action-btn button-base button-primary">Back to Login</button>
+            <button id="go-to-workspace-btn" class="nav-action-btn button-base button-primary">Go to Workspace</button>
+            <button id="vat-report-btn" class="report-action-btn button-base button-secondary">VAT Report</button>
+            <button id="jv-report-btn" class="report-action-btn button-base button-secondary">JV Report</button>
+            <button id="report-button-3" class="report-action-btn button-base button-secondary">Report 3</button>
+            <button id="management-button" class="management-action-btn button-base button-primary">Management</button>
+        </div>
+    </header>
+
+    <main class="page-container">
+        <div id="reports-page-default-message">
+            <h1>Reports Page</h1>
+            <p>Select a report from the header to get started.</p>
+        </div>
+
+        <!-- VAT Report Section (initially hidden) -->
+        <section id="vat-report-section" style="display: none;">
+            <div class="page-header">
+                <h1>VAT Report</h1>
+                <div class="report-controls">
+                    <label for="start-date">Start Date:</label>
+                    <input type="date" id="start-date" class="report-date-input">
+                    <label for="end-date">End Date:</label>
+                    <input type="date" id="end-date" class="report-date-input">
+                    <button id="generate-vat-report-btn" class="modern-add-btn button-base button-primary">Generate Report</button>
+                    <button id="export-vat-report-btn" class="modern-add-btn button-base button-primary">Export to Excel</button>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <div class="table-scroll-container">
+                    <table id="vat-report-table">
+                        <thead>
+                            <tr>
+                                <th>Vendor Name</th>
+                                <th>TIN No</th>
+                                <th>MRC No</th>
+                                <th>Purchase Date</th>
+                                <th>Item Name</th>
+                                <th>Quantity</th>
+                                <th>Unit Price</th>
+                                <th>VAT %</th>
+                                <th>VAT Amount</th>
+                                <th>Base Total</th>
+                                <th>Total Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Report data will be populated here by reports.js -->
+                        </tbody>
+                        <tfoot>
+                            <tr id="vat-report-summary-row">
+                                <td colspan="7">Total Summary</td>
+                                <td id="summary-vat-amount">0.00</td>
+                                <td id="summary-base-total">0.00</td>
+                                <td id="summary-total-amount">0.00</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </section>
+        <section id="jv-report-section" style="display: none">
+            <div class="page-headers">
+              <h1>JV Report</h1>
+              <div class="report-controlss">
+                <label for="single-date"> Single Date:</label>
+                <input type="date" id="single-date" class="report-date-input">
+                <button id="generate-jv-report-btn" class="modern-add-btn button-base button-primary">Generate Report</button>
+              </div>
+              <div class="table-wrapper">
+                <div class="table-scroll-container">
+                  <table id="jv-report-table">
+                    <thead>
+                      <tr>
+                        <th rowspan="2">Items</th>
+                        <th colspan="2">Debt</th>
+                        <th colspan="2">Credits</th>
+                      </tr>
+                      <tr>
+                        <th>Birr</th>
+                        <th>Cent</th>
+                        <th>Birr</th>
+                        <th>Cent</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                     
+                    </tbody>
+                    <tfoot>
+                  
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            </div>
+            </section>
+            <section id="management-section"  style="display: none;">
+                <h2>Management</h2>
+              
+                <!-- Tab Buttons -->
+                <div class="tabs">
+                  <button class="tab-button active button-base button-secondary" data-tab="vendor-tab">Vendor</button>
+                  <button class="tab-button button-base button-secondary" data-tab="items-tab">Items</button>
+                </div>
+              
+                <!-- Tab Contents -->
+                <div class="tab-contents">
+                  <!-- Vendor Tab -->
+                  <div id="vendor-tab" class="tab-content active">
+                    <h3>Vendors</h3>
+                    <section id="vendor-management">
+                        <button id="openModalBtn" class="modern-add-btn button-base button-primary">Add Vendor</button>
+
+                        <div class="table-wrapper" style="margin-top: 1rem;">
+                            <div class="table-scroll-container">
+                                <table id="vendors-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Vendor Name</th>
+                                            <th>TIN Number</th>
+                                            <th>MRC Numbers</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Vendor rows will be inserted here by reports.js -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <!-- Add Vendor Button -->
+<!-- Modal -->
+                            <div id="addVendorModal" class="modal">
+                            <div class="modal-content">
+                                <span class="close">&times;</span>
+                                <h2>Add Vendor</h2>
+                                <form id="addVendorForm">
+                                <label for="vendorName">Vendor Name:</label>
+                                <input type="text" id="vendorName" name="vendorName" required />
+
+                                <label for="tinNumber">TIN Number:</label>
+                                <input type="text" id="tinNumber" name="tinNumber" required />
+
+                                <div id="mrcContainer">
+                                    <label>MRC Numbers:</label>
+                                    <div class="mrc-input">
+                                    <input type="text" name="mrcNumbers[]" />
+                                    <button type="button" class="removeMrc button-base button-destructive">Remove</button>
+                                    </div>
+                                </div>
+                                <button type="button" id="addMrcBtn" class="button-base button-primary">Add MRC</button>
+
+                                <button type="submit" class="button-base button-primary">Save Vendor</button>
+                                </form>
+                            </div>
+                            </div>
+
+                      </section>
+                      
+                  </div>
+              
+                  <!-- Items Tab -->
+                  <div id="items-tab" class="tab-content">
+                    <!-- Controls for Category and Subcategory Modals -->
+                    <div class="management-section-controls">
+                        <button id="openAddCategoryModalBtn" class="modern-add-btn button-base button-primary">Add New Category</button>
+                        <button id="openAddSubcategoryModalBtn" class="modern-add-btn button-base button-primary">Add New Subcategory</button>
+                    </div>
+
+                    <!-- Category Management Table (initially hidden, but can be toggled if needed later) -->
+                    <div id="categoryTableContainer" style="display: none;">
+                        <h3>Categories</h3>
+                        <div class="table-wrapper" style="margin-top: 1rem;">
+                            <div class="table-scroll-container">
+                                <table id="categories-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Category Name</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Categories will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Subcategory Management Table (initially hidden, but can be toggled if needed later) -->
+                    <div id="subcategoryTableContainer" style="display: none;">
+                        <h3>Subcategories</h3>
+                        <div class="table-wrapper" style="margin-top: 1rem;">
+                            <div class="table-scroll-container">
+                                <table id="subcategories-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Category</th>
+                                            <th>Subcategory Name</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <!-- Subcategories will be loaded here -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3>Items</h3>
+                    <div class="management-section-controls">
+                        <select id="itemCategorySelect" class="report-date-input"></select>
+                        <select id="itemSubcategorySelect" class="report-date-input"></select>
+                        <input type="text" id="newItemName" placeholder="New Item Name" class="report-date-input">
+                        <input type="number" id="newItemUnitPrice" placeholder="Unit Price" class="report-date-input">
+                        <input type="text" id="newItemDescription" placeholder="Description" class="report-date-input">
+                        <button id="addItemBtn" class="modern-add-btn button-base button-primary">Add Item</button>
+                    </div>
+                    <div class="table-wrapper" style="margin-top: 1rem;">
+                        <div class="table-scroll-container">
+                            <table id="items-table">
+                                <thead>
+                                    <tr>
+                                        <th>Item Name</th>
+                                        <th>Category</th>
+                                        <th>Subcategory</th>
+                                        <th>Unit Price</th>
+                                        <th>Description</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Items will be loaded here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                  </div>
+              </section>
+
+    </main>
+
+    <!-- Modals for Category and Subcategory Forms -->
+    <div id="addCategoryModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Add Category</h2>
+            <div class="management-section-controls">
+                <input type="text" id="newCategoryNameModal" placeholder="New Category Name" class="report-date-input">
+                <button id="addCategoryBtnModal" class="modern-add-btn button-base button-primary">Add Category</button>
+            </div>
+        </div>
     </div>
-    <div class="main-container">
-        <h1>Reports Page</h1>
-        <p>This page will display various financial reports.</p>
+
+    <div id="addSubcategoryModal" class="modal">
+        <div class="modal-content">
+            <span class="close">&times;</span>
+            <h2>Add Subcategory</h2>
+            <div class="management-section-controls">
+                <select id="subcategoryCategorySelectModal" class="report-date-input"></select>
+                <input type="text" id="newSubcategoryNameModal" placeholder="New Subcategory Name" class="report-date-input">
+                <button id="addSubcategoryBtnModal" class="modern-add-btn button-base button-primary">Add Subcategory</button>
+            </div>
+        </div>
     </div>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            if (sessionStorage.getItem('isLoggedIn') !== 'true') {
-                window.location.href = 'index.html';
-            }
-        });
-    </script>
+
+    <!-- Custom Notification Modal -->
+    <div id="customNotificationModal" class="modal">
+        <div class="modal-content notification-modal">
+            <span class="close-notification">&times;</span>
+            <p id="notificationMessage"></p>
+        </div>
+    </div>
+
     <script src="reports.js"></script>
 </body>
 </html>
