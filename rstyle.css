@@ -2,19 +2,23 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 
 :root {
-  --background: 240 5% 96%;
-  --foreground: 240 6% 10%;
-  --card: 0 0% 100%;
-  --primary: 265 85% 52%;
-  --primary-foreground: 210 40% 98%;
-  --destructive: 0 84% 60%;
-  --muted: 240 5% 90%;
-  --muted-foreground: 240 4% 46%;
-  --border: 240 6% 84%;
-  --ring: 265 85% 52%;
-  --radius: 0.5rem;
-  --secondary: 210 40% 96.1%; /* Added secondary for tab background */
-  --secondary-foreground: 210 3.8% 25%; /* Added secondary foreground */
+  --background: 0 0% 100%; /* Pure white background */
+  --foreground: 220 3.9% 10.2%; /* Dark gray for text */
+  --card: 0 0% 100%; /* White cards */
+  --primary: 224 85% 60%; /* Adjusted primary to 696FC7 equivalent */
+  --primary-foreground: 210 20% 98%; /* Light off-white for primary text */
+  --secondary: 220 14.3% 95.9%; /* Lighter gray for secondary elements (tabs, report buttons) */
+  --secondary-foreground: 220 3.9% 10.2%; /* Dark gray for secondary text */
+  --muted: 220 14.3% 95.9%; /* Lighter gray for muted elements */
+  --muted-foreground: 220 8.9% 46.1%; /* Gray for muted text */
+  --accent: 220 14.3% 95.9%; /* Accent color, same as muted for now */
+  --accent-foreground: 220 3.9% 10.2%; /* Dark gray for accent text */
+  --destructive: 0 84.2% 60.2%; /* Red for destructive actions */
+  --destructive-foreground: 210 20% 98%; /* Light off-white for destructive text */
+  --border: 220 13% 91%; /* Light gray border */
+  --input: 220 13% 91%; /* Light gray input border */
+  --ring: 224 85% 60%; /* Ring color, same as primary */
+  --radius: 0.5rem; /* Consistent radius */
 }
 
 /* --- Base Styles --- */
@@ -39,30 +43,30 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
 
 /* NEW: Primary button color scheme */
 .button-primary {
-  background-color: hsl(var(--primary));
-  color: hsl(var(--primary-foreground));
+  background-color: hsl(var(--primary)); /* Use new primary color */
+  color: hsl(var(--primary-foreground)); /* Use new primary foreground color */
 }
 .button-primary:hover {
-  background-color: hsl(265, 85%, 48%); /* Darken primary on hover */
+  background-color: hsl(224, 85%, 55%); /* Darken new primary on hover */
 }
 
 /* NEW: Secondary button color scheme */
 .button-secondary {
-  background-color: hsl(var(--secondary));
-  color: hsl(var(--secondary-foreground));
+  background-color: hsl(var(--secondary)); /* Use new secondary color */
+  color: hsl(var(--secondary-foreground)); /* Use new secondary foreground color */
   border: 1px solid hsl(var(--border));
 }
 .button-secondary:hover {
-  background-color: hsl(210, 40%, 90%); /* Darken secondary on hover */
+  background-color: hsl(220, 10%, 90%); /* Darken new secondary on hover */
 }
 
 /* NEW: Destructive button color scheme */
 .button-destructive {
-  background-color: hsl(var(--destructive));
-  color: hsl(var(--primary-foreground));
+  background-color: hsl(var(--destructive)); /* Use new destructive color */
+  color: hsl(var(--destructive-foreground)); /* Use new destructive foreground color */
 }
 .button-destructive:hover {
-  background-color: hsl(0, 84%, 50%); /* Darken destructive on hover */
+  background-color: hsl(0, 75%, 50%); /* Darken new destructive on hover */
 }
 
 /* --- MODERN HEADER --- */
@@ -73,6 +77,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
   background-image: linear-gradient(to right, rgba(255, 255, 255, 0.9),rgba(255, 255, 255, 0.9));
   border-bottom: 1px solid hsl(var(--border));
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05); /* Add subtle shadow */
 }
 .logo-link { display: inline-flex; align-items: center; gap: 0.75rem; text-decoration: none; }
 .logo-icon {
@@ -196,7 +201,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
   }
 #jv-report-table tfoot td:first-child { text-align: left; }
   #management-section {
-    border: 1px solid #ccc;
+    border: 1px solid hsl(var(--border));
     padding: 1rem;
     margin: 1rem 0;
     border-radius: 8px;
@@ -217,7 +222,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
   }
 
   .tab-button:hover:not(.active) {
-    background-color: hsl(210, 40%, 90%);
+    background-color: hsl(var(--muted)); /* Use muted for hover on inactive tabs */
   }
 
   .tab-content {
@@ -251,11 +256,12 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
   }
 
   #vendors-table tbody tr:nth-child(even) {
-      background-color: transparent; /* Remove striped background to match vat table */
+      background-color: transparent; 
   }
 
   #vendors-table tbody tr:hover {
-      background-color: hsl(265, 85%, 97%);
+      background-color: hsl(var(--primary), 10%); /* Lighter shade of primary for hover */
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08); /* Subtle shadow on hover */
   }
 
   #vendors-table .editable-cell {
@@ -439,7 +445,7 @@ form input {
 button[type="submit"] { /* Apply .button-base and .button-primary in HTML */ }
 
 button[type="submit"]:hover {
-  background-color: hsl(265, 85%, 48%);
+  background-color: hsl(224, 85%, 55%); /* Darken new primary for hover */
 }
 
 /* Specific styling for buttons inside the modal that are not submit */
@@ -457,5 +463,73 @@ button[type="submit"]:hover {
 .mrc-input .removeMrc { /* Apply .button-base and .button-destructive in HTML */ }
 
 .mrc-input .removeMrc:hover {
-  background-color: hsl(0, 84%, 50%); /* Explicit hover for specificity if needed */
+  background-color: hsl(0, 75%, 50%); /* Darken new destructive for hover */
+}
+
+#summary-report-table {
+    width: 100%;
+    min-width: 1200px; /* Adjust as needed */
+    border-collapse: collapse;
+}
+
+#summary-report-table th,
+#summary-report-table td {
+    padding: 0.5rem;
+    border-bottom: 1px solid hsl(var(--border));
+    border-right: 1px solid hsl(var(--border));
+    font-size: 0.875rem;
+    text-align: right; /* Align numbers to the right */
+}
+
+#summary-report-table th:first-child,
+#summary-report-table td:first-child {
+    text-align: left; /* Date column to the left */
+    position: sticky; /* Make date column sticky */
+    left: 0;
+    background-color: hsl(var(--card));
+    z-index: 2;
+}
+
+#summary-report-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background-color: hsl(var(--background));
+    padding: 0.75rem 0.5rem;
+    text-align: left;
+    font-weight: 600;
+    font-size: 0.8rem;
+    color: hsl(var(--muted-foreground));
+    text-transform: uppercase;
+    border-bottom: 2px solid hsl(var(--border));
+    border-right: 1px solid hsl(var(--border));
+}
+
+#summary-report-table thead th:first-child {
+    border-right: 1px solid hsl(var(--border));
+}
+
+#summary-report-table tbody tr:hover {
+    background-color: hsl(265, 85%, 97%);
+}
+
+/* Pagination Controls for Summary Report */
+.summary-pagination-controls {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+}
+
+.management-action-btn {
+    background-color: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Stronger shadow */
+    font-weight: 600; /* Bolder text */
+}
+.management-action-btn:hover {
+    background-color: hsl(var(--primary), 90%); /* Slightly darker primary on hover */
+    transform: translateY(-2px); /* Lift effect on hover */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25); /* Even stronger shadow on hover */
 }

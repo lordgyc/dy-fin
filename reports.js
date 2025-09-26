@@ -73,6 +73,26 @@ document.addEventListener('DOMContentLoaded', () => {
     const categoryTableContainer = document.getElementById('categoryTableContainer');
     const subcategoryTableContainer = document.getElementById('subcategoryTableContainer');
 
+    // Summary Report Elements
+    const summaryReportBtn = document.getElementById('summary-report-btn');
+    const summaryReportSection = document.getElementById('summary-report-section');
+    const summaryStartDateInput = document.getElementById('summary-start-date');
+    const summaryEndDateInput = document.getElementById('summary-end-date');
+    const generateSummaryReportBtn = document.getElementById('generate-summary-report-btn');
+    const summaryReportTableHead = document.querySelector('#summary-report-table thead tr');
+    const summaryReportTableBody = document.querySelector('#summary-report-table tbody');
+
+    // Summary Report Pagination Elements
+    const summaryPaginationControls = document.querySelector('.summary-pagination-controls');
+    const prevSummaryPageBtn = document.getElementById('prev-summary-page-btn');
+    const nextSummaryPageBtn = document.getElementById('next-summary-page-btn');
+    const summaryPageInfo = document.getElementById('summary-page-info');
+
+    let currentPage = 0;
+    const itemsPerPage = 10; // Number of item columns to display per page
+    let allUniqueItems = [];
+    let currentReportData = [];
+
     // Functions to open and close new modals
     function openModal(modalElement, mode = 'add', id = null) {
         modalElement.style.display = 'block';
@@ -379,11 +399,126 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
     };
+    // NEW: Function to toggle vendor row edit mode
+    function toggleVendorEditMode(vendor_id, rowElement, enable) {
+        const vendorNameCell = rowElement.querySelector('[data-field="vendor_name"]');
+        const tinNumberCell = rowElement.querySelector('[data-field="tin_number"]');
+        const mrcContainer = rowElement.querySelector('.mrc-container');
+        const actionButtonsContainer = rowElement.querySelector('.action-buttons');
+
+        if (enable) {
+            rowElement.classList.add('editing');
+            vendorNameCell.setAttribute('contenteditable', 'true');
+            tinNumberCell.setAttribute('contenteditable', 'true');
+            mrcContainer.querySelectorAll('.editable-mrc').forEach(input => {
+                input.setAttribute('contenteditable', 'true');
+            });
+            mrcContainer.querySelector('.add-mrc-btn').style.display = 'inline-flex';
+            mrcContainer.querySelectorAll('.remove-mrc-btn').forEach(btn => btn.style.display = 'inline-flex');
+
+            actionButtonsContainer.innerHTML = `
+                <button class="save-vendor-btn button-base button-primary" data-vendor-id="${vendor_id}"><i class="fas fa-save"></i> Save</button>
+                <button class="delete-vendor-btn button-base button-destructive" data-vendor-id="${vendor_id}"><i class="fas fa-trash"></i> Delete</button>
+            `;
+        } else {
+            rowElement.classList.remove('editing');
+            vendorNameCell.setAttribute('contenteditable', 'false');
+            tinNumberCell.setAttribute('contenteditable', 'false');
+            mrcContainer.querySelectorAll('.editable-mrc').forEach(input => {
+                input.setAttribute('contenteditable', 'false');
+            });
+            mrcContainer.querySelector('.add-mrc-btn').style.display = 'none';
+            mrcContainer.querySelectorAll('.remove-mrc-btn').forEach(btn => btn.style.display = 'none');
+
+            actionButtonsContainer.innerHTML = `
+                <button class="edit-vendor-btn button-base button-secondary" data-vendor-id="${vendor_id}"><i class="fas fa-edit"></i> Edit</button>
+            `;
+        }
+        // Re-attach all necessary event listeners after changing innerHTML
+        loadVendorActionListeners(rowElement); // A new helper function for this
+    }
+
+    // NEW: Helper function to attach action listeners to a specific vendor row
+    function loadVendorActionListeners(rowElement) {
+        rowElement.querySelectorAll('.edit-vendor-btn').forEach(button => {
+            button.addEventListener('click', (event) => {
+                const vendorId = event.target.dataset.vendorId || event.target.closest('button').dataset.vendorId;
+                toggleVendorEditMode(vendorId, rowElement, true);
+            });
+        });
+
+        rowElement.querySelectorAll('.save-vendor-btn').forEach(button => {
+            button.addEventListener('click', (event) => {
+                const vendorId = event.target.dataset.vendorId || event.target.closest('button').dataset.vendorId;
+                editVendor(vendorId, rowElement); // Pass rowElement
+            });
+        });
+
+        rowElement.querySelectorAll('.delete-vendor-btn').forEach(button => {
+            button.addEventListener('click', (event) => {
+                const vendorId = event.target.dataset.vendorId || event.target.closest('button').dataset.vendorId;
+                deleteVendor(vendorId, rowElement); // Pass rowElement
+            });
+        });
+        
+        // Attach event listeners for dynamically added MRC input fields and buttons (only if in editing mode)
+        rowElement.querySelectorAll('.add-mrc-btn').forEach(button => {
+            button.addEventListener('click', (event) => {
+                const mrcContainer = event.target.closest('.mrc-container');
+                const newMrcInputGroup = document.createElement('div');
+                newMrcInputGroup.classList.add('mrc-input-group');
+                if (rowElement.classList.contains('editing')) {
+                    newMrcInputGroup.innerHTML = `
+                        <input type="text" class="editable-mrc" value="" contenteditable="true" />
+                        <button type="button" class="remove-mrc-btn button-base button-destructive">-</button>
+                    `;
+                    mrcContainer.insertBefore(newMrcInputGroup, event.target);
+                    newMrcInputGroup.querySelector('.editable-mrc').focus();
+                    // No need to call addMrcEventListeners here, as this function will be called for the whole row again
+                }
+            });
+        });
+
+        rowElement.querySelectorAll('.remove-mrc-btn').forEach(button => {
+            button.addEventListener('click', (event) => {
+                if (rowElement.classList.contains('editing')) {
+                    event.target.closest('.mrc-input-group').remove();
+                }
+            });
+        });
+
+        // Re-attach focus/blur listeners for editable cells and MRC inputs
+        rowElement.querySelectorAll('.editable-cell[data-field="vendor_name"], .editable-cell[data-field="tin_number"]').forEach(cell => {
+            cell.addEventListener('focus', () => {
+                if (rowElement.classList.contains('editing')) {
+                    cell.setAttribute('contenteditable', 'true');
+                } else {
+                    cell.setAttribute('contenteditable', 'false');
+                }
+            });
+            cell.addEventListener('blur', () => {
+                cell.setAttribute('contenteditable', 'false');
+            });
+        });
+
+        rowElement.querySelectorAll(".editable-mrc").forEach(input => {
+            input.addEventListener("focus", () => {
+                if (rowElement.classList.contains('editing')) {
+                    input.setAttribute("contenteditable", "true");
+                } else {
+                    input.setAttribute("contenteditable", "false");
+                }
+            });
+            input.addEventListener("blur", () => {
+                input.setAttribute("contenteditable", "false");
+            });
+        });
+    }
     /**
  * Gathers edited data from the table for a specific vendor and sends it to the update endpoint.
  * @param {string} vendor_id - The UUID of the vendor to update.
  */
-async function editVendor(vendor_id) {
+async function editVendor(vendor_id, rowElement) {
     // Find all table rows that belong to this specific vendor
     const vendorRows = document.querySelectorAll(`tr[data-vendor-id="${vendor_id}"]`);
     if (vendorRows.length === 0) {
@@ -419,7 +554,8 @@ async function editVendor(vendor_id) {
         if (response.ok) {
             console.log("Vendor updated successfully");
             showNotification("Vendor saved!");
-            loadVendors(); // Refresh the table to reflect the changes
+            toggleVendorEditMode(vendor_id, rowElement, false); // Disable editing after save
+            // loadVendors(); // Refresh the table to reflect the changes (optional, as toggle mode should handle it)
         } else {
             const errorData = await response.json();
             console.error("Failed to update vendor:", errorData.message);
@@ -450,106 +586,36 @@ async function editVendor(vendor_id) {
                 if (mrcNumbers.length > 0) {
                     mrcInputsHtml = mrcNumbers.map(mrc => `
                         <div class="mrc-input-group">
-                            <input type="text" class="editable-mrc" value="${mrc}" contenteditable="true" />
-                            <button type="button" class="remove-mrc-btn button-base button-destructive">-</button>
+                            <input type="text" class="editable-mrc" value="${mrc}" contenteditable="false" />
+                            <button type="button" class="remove-mrc-btn button-base button-destructive" style="display: none;">-</button>
                         </div>
                     `).join('');
                 } else {
                     mrcInputsHtml = `
                         <div class="mrc-input-group">
-                            <input type="text" class="editable-mrc" value="" contenteditable="true" />
-                            <button type="button" class="remove-mrc-btn button-base button-destructive">-</button>
+                            <input type="text" class="editable-mrc" value="" contenteditable="false" />
+                            <button type="button" class="remove-mrc-btn button-base button-destructive" style="display: none;">-</button>
                         </div>
                     `;
                 }
 
                 row.innerHTML = `
-                    <td class="editable-cell" data-field="vendor_name" contenteditable="true">${vendor.vendor_name}</td>
-                    <td class="editable-cell" data-field="tin_number" contenteditable="true">${vendor.tin_number}</td>
+                    <td class="editable-cell" data-field="vendor_name" contenteditable="false">${vendor.vendor_name}</td>
+                    <td class="editable-cell" data-field="tin_number" contenteditable="false">${vendor.tin_number}</td>
                     <td class="mrc-container" data-field="mrc_numbers">
                         ${mrcInputsHtml}
-                        <button type="button" class="add-mrc-btn button-base button-primary">+</button>
+                        <button type="button" class="add-mrc-btn button-base button-primary" style="display: none;">+</button>
                     </td>
                     <td class="action-buttons">
-                        <button class="edit-btn button-base button-primary" data-vendor-id="${vendor.vendor_id}">Save</button>
-                        <button class="delete-btn button-base button-destructive" data-vendor-id="${vendor.vendor_id}">Delete</button>
+                        <button class="edit-vendor-btn button-base button-secondary" data-vendor-id="${vendor.vendor_id}"><i class="fas fa-edit"></i> Edit</button>
                     </td>
                 `;
                 tableBody.appendChild(row);
             });
 
-            // Add click-to-edit behavior for vendor name and tin number
-            document.querySelectorAll("#vendors-table .editable-cell[data-field='vendor_name'], #vendors-table .editable-cell[data-field='tin_number']").forEach(cell => {
-                cell.addEventListener("focus", () => {
-                    cell.setAttribute("contenteditable", "true");
-                });
-                cell.addEventListener("blur", () => {
-                    cell.setAttribute("contenteditable", "false");
-                });
-            });
-
-            // Add event listeners for Save and Delete buttons
-            document.querySelectorAll("#vendors-table .edit-btn").forEach(button => {
-                button.addEventListener("click", (event) => {
-                    const vendorId = event.target.dataset.vendorId;
-                    editVendor(vendorId);
-                });
-            });
-
-            document.querySelectorAll("#vendors-table .delete-btn").forEach(button => {
-                button.addEventListener("click", (event) => {
-                    const vendorId = event.target.dataset.vendorId;
-                    deleteVendor(vendorId);
-                });
-            });
-
-            // Add event listeners for dynamically added MRC input fields and buttons
-            document.querySelectorAll("#vendors-table .add-mrc-btn").forEach(button => {
-                button.addEventListener("click", (event) => {
-                    const mrcContainer = event.target.closest('.mrc-container');
-                    const newMrcInputGroup = document.createElement('div');
-                    newMrcInputGroup.classList.add('mrc-input-group');
-                    newMrcInputGroup.innerHTML = `
-                        <input type="text" class="editable-mrc" value="" contenteditable="true" />
-                        <button type="button" class="remove-mrc-btn button-base button-destructive">-</button>
-                    `;
-                    mrcContainer.insertBefore(newMrcInputGroup, event.target);
-                    newMrcInputGroup.querySelector('.editable-mrc').focus();
-                    addMrcEventListeners(newMrcInputGroup);
-                });
-            });
-
-            document.querySelectorAll("#vendors-table .remove-mrc-btn").forEach(button => {
-                button.addEventListener("click", (event) => {
-                    event.target.closest('.mrc-input-group').remove();
-                });
-            });
-
-            function addMrcEventListeners(element) {
-                element.querySelectorAll('.editable-mrc').forEach(input => {
-                    input.addEventListener("blur", () => {
-                        input.setAttribute("contenteditable", "false");
-                    });
-                    input.addEventListener("focus", () => {
-                        input.setAttribute("contenteditable", "true");
-                    });
-                });
-
-                element.querySelectorAll('.remove-mrc-btn').forEach(button => {
-                    button.addEventListener("click", (event) => {
-                        event.target.closest('.mrc-input-group').remove();
-                    });
-                });
-            }
-            
-            document.querySelectorAll("#vendors-table .editable-mrc").forEach(input => {
-                input.addEventListener("click", () => {
-                    input.setAttribute("contenteditable", "true");
-                    input.focus();
-                });
-                input.addEventListener("blur", () => {
-                    input.setAttribute("contenteditable", "false");
-                });
+            // Attach listeners to all dynamically created rows after they are appended
+            tableBody.querySelectorAll('tr').forEach(rowElement => {
+                loadVendorActionListeners(rowElement);
             });
 
         } catch (err) {
@@ -561,7 +627,7 @@ async function editVendor(vendor_id) {
  * Deletes a vendor after user confirmation.
  * @param {string} vendor_id - The UUID of the vendor to delete.
  */
-async function deleteVendor(vendor_id) {
+async function deleteVendor(vendor_id, rowElement) {
     // Confirm with the user before deleting to prevent accidents
     if (!confirm("Are you sure you want to delete this vendor?")) {
         return; // Stop the function if the user clicks "Cancel"
@@ -575,7 +641,7 @@ async function deleteVendor(vendor_id) {
         if (response.ok) {
             console.log("Vendor deleted successfully");
             showNotification("Vendor deleted successfully!");
-            loadVendors(); // Refresh the table to show the vendor has been removed
+            rowElement.remove(); // Remove the row directly
         } else {
             console.error("Failed to delete vendor. Server responded with an error.");
             showNotification("Failed to delete vendor. Please try again.");
@@ -695,7 +761,7 @@ tabButtons.forEach(button => {
         if(vatReportSection) vatReportSection.style.display = 'none';
         if(jvReportSection) jvReportSection.style.display = 'block';
         if(managementsection) managementsection.style.display = 'none';
-
+        if (summaryReportSection) summaryReportSection.style.display = 'none';
         
     })
     addvendorsbtn?.addEventListener('click', ()=>{
@@ -806,6 +872,8 @@ tabButtons.forEach(button => {
         if (reportsPageDefaultMessage) reportsPageDefaultMessage.style.display = 'none';
         if (vatReportSection) vatReportSection.style.display = 'block';
         if(jvReportSection) jvReportSection.style.display = 'none';
+        if (summaryReportSection) summaryReportSection.style.display = 'none';
+
         if(managementsection) managementsection.style.display = 'none';
 
         // Set default dates for the last 7 days
@@ -846,8 +914,134 @@ tabButtons.forEach(button => {
         if (vatReportSection) vatReportSection.style.display = 'none';
         if(jvReportSection) jvReportSection.style.display = 'none';
         if(managementsection) managementsection.style.display = 'block';
+        if (summaryReportSection) summaryReportSection.style.display = 'none';
+
         vendorSection.style.display = 'block';
         loadVendors()
+    });
+
+    summaryReportBtn?.addEventListener('click', () => {
+        if (reportsPageDefaultMessage) reportsPageDefaultMessage.style.display = 'none';
+        if (vatReportSection) vatReportSection.style.display = 'none';
+        if (jvReportSection) jvReportSection.style.display = 'none';
+        if (managementsection) managementsection.style.display = 'none';
+        if (summaryReportSection) summaryReportSection.style.display = 'block';
+
+        const today = new Date();
+        const thirtyDaysAgo = new Date(today);
+        thirtyDaysAgo.setDate(today.getDate() - 30);
+
+        summaryStartDateInput.value = thirtyDaysAgo.toISOString().split('T')[0];
+        summaryEndDateInput.value = today.toISOString().split('T')[0];
+        
+        fetchSummaryReport(summaryStartDateInput.value, summaryEndDateInput.value);
+    });
+
+    generateSummaryReportBtn?.addEventListener('click', () => {
+        const startDate = summaryStartDateInput.value;
+        const endDate = summaryEndDateInput.value;
+
+        if (!startDate || !endDate) {
+            showNotification('Please select both start and end dates.');
+            return;
+        }
+        fetchSummaryReport(startDate, endDate);
+    });
+
+    async function fetchSummaryReport(startDate, endDate) {
+        try {
+            const response = await fetch(`http://localhost:3000/reports/summary?startDate=${startDate}&endDate=${endDate}`);
+            const reportData = await response.json();
+
+            if (response.ok) {
+                renderSummaryReport(reportData);
+            } else {
+                console.error('Error fetching Summary report:', reportData.error);
+                showNotification(`Error fetching Summary report: ${reportData.error}`);
+            }
+        } catch (error) {
+            console.error('Network error fetching Summary report:', error);
+            showNotification('Network error fetching Summary report. Please check server connection.');
+        }
+    }
+
+    function renderSummaryReport(reportData) {
+        summaryReportTableHead.innerHTML = '<th>Date</th>'; // Reset header
+        summaryReportTableBody.innerHTML = ''; // Clear previous data
+
+        if (!reportData || reportData.length === 0) {
+            summaryReportTableBody.innerHTML = '<tr><td colspan="2">No data available for the selected date range.</td></tr>';
+            summaryPaginationControls.style.display = 'none';
+            return;
+        }
+
+        currentReportData = reportData; // Store full report data
+        allUniqueItems = Array.from(new Set(reportData.map(record => record.item_name)));
+        currentPage = 0; // Reset to first page
+        renderSummaryPage(currentPage);
+        summaryPaginationControls.style.display = 'flex'; // Show pagination controls
+    }
+
+    function renderSummaryPage(page) {
+        const startIndex = page * itemsPerPage;
+        const endIndex = Math.min(startIndex + itemsPerPage, allUniqueItems.length);
+        const itemsToDisplay = allUniqueItems.slice(startIndex, endIndex);
+
+        // Update table header
+        summaryReportTableHead.innerHTML = '<th>Date</th>';
+        itemsToDisplay.forEach(item => {
+            const th = document.createElement('th');
+            th.textContent = item;
+            summaryReportTableHead.appendChild(th);
+        });
+
+        // Update table body
+        summaryReportTableBody.innerHTML = '';
+        const groupedByDate = currentReportData.reduce((acc, record) => {
+            if (!acc[record.purchase_date]) {
+                acc[record.purchase_date] = {};
+            }
+            acc[record.purchase_date][record.item_name] = (acc[record.purchase_date][record.item_name] || 0) + record.total_amount;
+            return acc;
+        }, {});
+
+        const dates = Object.keys(groupedByDate).sort();
+
+        dates.forEach(date => {
+            const row = document.createElement('tr');
+            const dateCell = document.createElement('td');
+            dateCell.textContent = date;
+            row.appendChild(dateCell);
+
+            itemsToDisplay.forEach(item => {
+                const totalAmount = groupedByDate[date][item] || 0;
+                const itemCell = document.createElement('td');
+                itemCell.textContent = totalAmount.toFixed(2);
+                row.appendChild(itemCell);
+            });
+            summaryReportTableBody.appendChild(row);
+        });
+
+        // Update pagination info and button states
+        const totalPages = Math.ceil(allUniqueItems.length / itemsPerPage);
+        summaryPageInfo.textContent = `Page ${page + 1} of ${totalPages}`;
+        prevSummaryPageBtn.disabled = page === 0;
+        nextSummaryPageBtn.disabled = page === totalPages - 1;
+    }
+
+    prevSummaryPageBtn?.addEventListener('click', () => {
+        if (currentPage > 0) {
+            currentPage--;
+            renderSummaryPage(currentPage);
+        }
+    });
+
+    nextSummaryPageBtn?.addEventListener('click', () => {
+        const totalPages = Math.ceil(allUniqueItems.length / itemsPerPage);
+        if (currentPage < totalPages - 1) {
+            currentPage++;
+            renderSummaryPage(currentPage);
+        }
     });
 
 

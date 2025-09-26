@@ -6,6 +6,7 @@
     <title>Reports</title>
     <link rel="stylesheet" href="rstyle.css"> <!-- Link to the new reports stylesheet -->
     <script type="text/javascript" src="https://unpkg.com/xlsx@0.15.1/dist/xlsx.full.min.js"></script>
+    <link rel="stylesheet" href="./fonts/fontawesome/css/all.min.css"> <!-- Link to Font Awesome -->
 </head>
 <body>
 
@@ -19,7 +20,7 @@
             <button id="go-to-workspace-btn" class="nav-action-btn button-base button-primary">Go to Workspace</button>
             <button id="vat-report-btn" class="report-action-btn button-base button-secondary">VAT Report</button>
             <button id="jv-report-btn" class="report-action-btn button-base button-secondary">JV Report</button>
-            <button id="report-button-3" class="report-action-btn button-base button-secondary">Report 3</button>
+            <button id="summary-report-btn" class="report-action-btn button-base button-secondary">Summary Report</button>
             <button id="management-button" class="management-action-btn button-base button-primary">Management</button>
         </div>
     </header>
@@ -256,6 +257,42 @@
                     </div>
                   </div>
               </section>
+
+        <section id="summary-report-section" style="display: none;">
+            <div class="page-header">
+                <h1>Summary Report</h1>
+                <div class="report-controls">
+                    <label for="summary-start-date">Start Date:</label>
+                    <input type="date" id="summary-start-date" class="report-date-input">
+                    <label for="summary-end-date">End Date:</label>
+                    <input type="date" id="summary-end-date" class="report-date-input">
+                    <button id="generate-summary-report-btn" class="modern-add-btn button-base button-primary">Generate Report</button>
+                </div>
+            </div>
+
+            <div class="table-wrapper">
+                <div class="table-scroll-container">
+                    <table id="summary-report-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <!-- Item columns will be inserted here by reports.js -->
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Report data will be populated here by reports.js -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="summary-pagination-controls" style="display: none;">
+                <button id="prev-summary-page-btn" class="button-base button-secondary"><i class="fas fa-chevron-left"></i> Previous</button>
+                <span id="summary-page-info"></span>
+                <button id="next-summary-page-btn" class="button-base button-secondary">Next <i class="fas fa-chevron-right"></i></button>
+            </div>
+        </section>
+
+
 
     </main>
 

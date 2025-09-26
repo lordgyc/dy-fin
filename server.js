@@ -1380,5 +1380,34 @@ app.get('/vendors', (req, res) => {
       });
   });
 
+  app.get('/reports/summary', (req, res) => {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+        return res.status(400).json({ error: 'Start date and end date are required.' });
+    }
+
+    const sql = `
+        SELECT
+            pr.purchase_date,
+            i.item_name,
+            SUM(pr.total_amount) AS total_amount
+        FROM Purchase_Records pr
+        JOIN Items i ON pr.item_id = i.item_id
+        WHERE DATE(pr.purchase_date) BETWEEN ? AND ?
+        GROUP BY pr.purchase_date, i.item_name
+        ORDER BY pr.purchase_date, i.item_name;
+    `;
+
+    db.all(sql, [startDate, endDate], (err, rows) => {
+        if (err) {
+            console.error('Error fetching Summary report:', err.message);
+            res.status(500).json({ error: 'Failed to fetch Summary report.' });
+        } else {
+            res.json(rows);
+        }
+    });
+});
+
   return app;
 };

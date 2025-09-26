@@ -29,12 +29,18 @@ document.addEventListener('DOMContentLoaded', () => {
             <tr data-purchase-id="${data.purchase_id || ''}">
                 <td>
                     <div class="action-buttons-container">
-                        <button class="save-row-btn" aria-label="Save row" ${disabledAttr}>
-                            <span class="save-icon"></span>
-                        </button>
-                        <button class="delete-row-btn" aria-label="Delete row" ${disabledAttr}>
-                            <span class="delete-icon"></span>
-                        </button>
+                        ${isEditable ? `
+                            <button class="save-row-btn button-base button-primary" aria-label="Save row">
+                                <span class="save-icon"></span>
+                            </button>
+                            <button class="delete-row-btn button-base button-destructive" aria-label="Delete row">
+                                <span class="delete-icon"></span>
+                            </button>
+                        ` : `
+                            <button class="edit-row-btn button-base button-secondary" aria-label="Edit row">
+                                <span class="edit-icon"></span>
+                            </button>
+                        `}
                     </div>
                 </td>
                 <td><input type="text" class="vendor-name-input ${disabledClass}" data-vendor-id="${data.vendor_id || ''}" value="${data.vendor_name || ''}" ${disabledAttr}></td>
@@ -61,34 +67,23 @@ document.addEventListener('DOMContentLoaded', () => {
     // ===================================================================================
     const createNewRowHTML = () => {
         // This creates an empty, editable row HTML string
-        return `
-            <tr data-purchase-id="">
-                <td>
-                    <div class="action-buttons-container">
-                        <button class="save-row-btn" aria-label="Save row">
-                            <span class="save-icon"></span>
-                        </button>
-                        <button class="delete-row-btn" aria-label="Delete row">
-                            <span class="delete-icon"></span>
-                        </button>
-                    </div>
-                </td>
-                <td><input type="text" class="vendor-name-input" data-vendor-id="" value=""></td>
-                <td><select class="mrc-no-input"><option value="N/A">N/A</option></select></td>
-                <td><input type="text" class="tin-no-input" value=""></td>
-                <td><input type="text" class="item-name-input" data-item-id="" value=""></td>
-                <td><input type="date" class="purchase-date-input" value=""></td>
-                <td><input type="text" class="unit-input" value=""></td>
-                <td><input type="number" class="quantity-input" value="0" min="0"></td>
-                <td><input type="number" class="unit-price-input" value="0.00" min="0" step="0.01"></td>
-                <td><input type="number" class="vat-percentage-input" value="12" min="0" step="0.01"></td>
-                <td><input type="checkbox" class="vat-onoff-input" checked></td>
-                <td class="base-total-display calculated-cell">0.00</td>
-                <td class="total-vat-display calculated-cell">0.00</td>
-                <td><input type="text" class="fs-number-input" value=""></td>
-                <td class="subtotal-display calculated-cell">0.00</td>
-            </tr>
-        `;
+        return populateRowWithData({
+            purchase_id: '',
+            vendor_id: '',
+            vendor_name: '',
+            mrc_number: 'N/A',
+            tin_number: '',
+            item_id: '',
+            item_name: '',
+            purchase_date: '',
+            unit: '',
+            quantity: 0,
+            unit_price: 0.00,
+            vat_percentage: 12,
+            vat_amount: 0.00,
+            total_amount: 0.00,
+            fs_number: '',
+        }, true); // New rows are always editable
     };
 
     const attachRowEventListeners = (rowElement) => {
@@ -109,6 +104,34 @@ document.addEventListener('DOMContentLoaded', () => {
         // Get references to the NEW button elements
         const deleteButton = rowElement.querySelector('.delete-row-btn');
         const saveButton = rowElement.querySelector('.save-row-btn');
+
+        // NEW: Edit button reference
+        const editButton = rowElement.querySelector('.edit-row-btn');
+
+        // NEW: Event listener for Edit button
+        editButton?.addEventListener('click', () => {
+            // Enable all inputs/selects in the row
+            rowElement.querySelectorAll('input, select').forEach(input => {
+                input.removeAttribute('disabled');
+                input.classList.remove('disabled-input');
+            });
+
+            // Replace edit button with save and delete buttons
+            const actionButtonsContainer = rowElement.querySelector('.action-buttons-container');
+            if (actionButtonsContainer) {
+                actionButtonsContainer.innerHTML = `
+                    <button class="save-row-btn button-base button-primary" aria-label="Save row">
+                        <span class="save-icon"></span>
+                    </button>
+                    <button class="delete-row-btn button-base button-destructive" aria-label="Delete row">
+                        <span class="delete-icon"></span>
+                    </button>
+                `;
+                // Re-attach listeners for the new save/delete buttons
+                attachRowEventListeners(rowElement); 
+            }
+        });
+
 
         // Autocomplete for Vendor Name
         const vendorNameCell = vendorNameInput?.parentElement;
@@ -354,6 +377,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 rowElement.querySelector('.save-row-btn')?.setAttribute('disabled', 'true');
                 rowElement.querySelector('.delete-row-btn')?.setAttribute('disabled', 'true');
 
+                // Replace save/delete with edit button
+                const actionButtonsContainer = rowElement.querySelector('.action-buttons-container');
+                if (actionButtonsContainer) {
+                    actionButtonsContainer.innerHTML = `
+                        <button class="edit-row-btn button-base button-secondary" aria-label="Edit row">
+                            <span class="edit-icon"></span>
+                        </button>
+                    `;
+                    // Re-attach listeners for the new edit button
+                    attachRowEventListeners(rowElement); 
+                }
+
                 updateSummaryTotals();
                 return true;
             } else {
@@ -552,7 +587,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     syncLogsBtn?.addEventListener('click', async () => {
-        showNotification('Syncing logs, please wait...', 'info');
         try {
             const response = await fetch('http://localhost:3000/sync-logs', {
                 method: 'POST',

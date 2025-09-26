@@ -2,17 +2,28 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap");
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 240 6% 10%;
-  --card: 0 0% 100%;
-  --primary: 265 85% 52%;
-  --primary-foreground: 210 40% 98%;
-  --muted-foreground: 240 4% 46%;
-  --destructive: 0 75% 55%;
-  --border: 240 6% 90%;
-  --input: 240 6% 90%;
-  --ring: 265 85% 52%;
-  --radius: 1rem;
+  --background: 0 0% 100%; /* Pure white background */
+  --foreground: 220 3.9% 10.2%; /* Dark gray for text */
+  --card: 0 0% 100%; /* White cards */
+  --primary: 224 85% 60%; /* Adjusted primary to 696FC7 equivalent */
+  --primary-foreground: 210 20% 98%; /* Light off-white for primary text */
+  --secondary: 210 40% 96.1%; /* Light gray for secondary elements */
+  --secondary-foreground: 220 3.9% 10.2%; /* Dark gray for secondary text */
+  --muted: 220 14.3% 95.9%; /* Lighter gray for muted elements */
+  --muted-foreground: 220 8.9% 46.1%; /* Gray for muted text */
+  --accent: 220 14.3% 95.9%; /* Accent color, same as muted for now */
+  --accent-foreground: 220 3.9% 10.2%; /* Dark gray for accent text */
+  --destructive: 0 84.2% 60.2%; /* Red for destructive actions */
+  --destructive-foreground: 210 20% 98%; /* Light off-white for destructive text */
+  --border: 220 13% 91%; /* Light gray border */
+  --input: 220 13% 91%; /* Light gray input border */
+  --ring: 224 85% 60%; /* Ring color, same as primary */
+  --radius: 0.5rem; /* Slightly smaller radius for modern feel */
+  --chart-1: 224 85% 60%; /* Primary for charts */
+  --chart-2: 172 59% 46%;
+  --chart-3: 47 96% 60%;
+  --chart-4: 292 60% 64%;
+  --chart-5: 343 76% 60%;
 }
 
 /* --- Base Styles --- */
@@ -25,6 +36,7 @@ body {
   color: hsl(var(--foreground));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
 }
 
 /* --- Modern Header (targets your .header class) --- */
@@ -41,10 +53,11 @@ body {
   background-image: linear-gradient(to right, rgba(255, 255, 255, 0.9),rgba(255, 255, 255, 0.9));
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 .logo-link { display: inline-flex; align-items: center; gap: 0.5rem; color: white; text-decoration: none; }
 .logo-icon { font-weight: 800; font-size: 1.5rem; }
-.logo-title { font-size: 1rem; font-weight: 600; letter-spacing: 0.025em; }
+.logo-title { font-size: 1rem; font-weight: 600; letter-spacing: 0.025em; color: hsl(var(--foreground)); /* Ensure logo title is visible */}
 
 /* --- Main Layout (targets your .main-container) --- */
 .main-container {
@@ -54,7 +67,8 @@ body {
   grid-template-columns: 1fr;
   align-items: center;
   gap: 2rem;
-  background-image: radial-gradient(80% 60% at 50% -20%, hsla(276, 75%, 80%, 0.6), transparent 60%), radial-gradient(70% 60% at 80% 10%, hsla(231, 75%, 80%, 0.5), transparent 60%);
+  background-image: none; /* Remove gradients for clean white background */
+  background-color: hsl(var(--background)); /* Explicitly set background color */
 }
 @media (min-width: 900px) {
   .main-container { grid-template-columns: 1fr 1.2fr; }
@@ -70,8 +84,9 @@ body {
   background-color: hsla(var(--card), 0.6);
   padding: 2rem;
   box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
-  -webkit-backdrop-filter: blur(16px);
-  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(0px); /* Remove blur */
+  backdrop-filter: blur(0px); /* Remove blur */
+  background-color: hsl(var(--card)); /* Solid white background */
 }
 .card-header { margin-bottom: 1.5rem; }
 .card-header h2 { margin: 0; font-size: 1.875rem; font-weight: 800; }
@@ -89,7 +104,7 @@ body {
   font-weight: 600; font-size: 1rem; cursor: pointer; transition: opacity 0.2s;
 }
 .login-panel button[type="submit"]:hover { opacity: 0.9; }
-.login-status { margin-top: 1rem; text-align: center; font-weight: 500; }
+.login-status { margin-top: 1rem; text-align: center; font-weight: 500; color: hsl(var(--foreground)); /* Ensure visibility */}
 .loading-spinner {
   margin: 1rem auto 0; width: 24px; height: 24px; border-radius: 50%;
   border: 3px solid hsl(var(--border)); border-top-color: hsl(var(--primary));
@@ -125,14 +140,15 @@ body {
 .nav-action-btn:hover { background-color: hsl(var(--primary-hover)); }
 
 .report-action-btn {
-    background-color: hsl(210, 20%, 96%); /* Light background for reports */
-    color: hsl(var(--foreground));
+    background-color: hsl(var(--secondary)); /* Use secondary color for reports */
+    color: hsl(var(--secondary-foreground));
+    border: 1px solid hsl(var(--border)); /* Add border for definition */
 }
 .report-action-btn:hover { background-color: hsl(210, 20%, 90%); }
 
 .management-action-btn {
-    background-color: hsl(48, 96%, 60%); /* Amber for management */
-    color: hsl(var(--foreground));
+    background-color: hsl(var(--primary)); /* Use primary color for management */
+    color: hsl(var(--primary-foreground));
 }
 .management-action-btn:hover { background-color: hsl(48, 96%, 50%); }
 
@@ -173,17 +189,23 @@ body {
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 
 :root {
-  --background: 240 5% 96%;
-  --foreground: 240 6% 10%;
-  --card: 0 0% 100%;
-  --primary: 265 85% 52%;
-  --primary-foreground: 210 40% 98%;
-  --destructive: 0 84% 60%;
-  --muted: 240 5% 90%;
-  --muted-foreground: 240 4% 46%;
-  --border: 240 6% 84%;
-  --ring: 265 85% 52%;
-  --radius: 0.5rem;
+  --background: 0 0% 100%; /* Pure white background */
+  --foreground: 220 3.9% 10.2%; /* Dark gray for text */
+  --card: 0 0% 100%; /* White cards */
+  --primary: 224 85% 60%; /* Adjusted primary to 696FC7 equivalent */
+  --primary-foreground: 210 20% 98%; /* Light off-white for primary text */
+  --secondary: 210 40% 96.1%; /* Light gray for secondary elements */
+  --secondary-foreground: 220 3.9% 10.2%; /* Dark gray for secondary text */
+  --muted: 220 14.3% 95.9%; /* Lighter gray for muted elements */
+  --muted-foreground: 220 8.9% 46.1%; /* Gray for muted text */
+  --accent: 220 14.3% 95.9%; /* Accent color, same as muted for now */
+  --accent-foreground: 220 3.9% 10.2%; /* Dark gray for accent text */
+  --destructive: 0 84.2% 60.2%; /* Red for destructive actions */
+  --destructive-foreground: 210 20% 98%; /* Light off-white for destructive text */
+  --border: 220 13% 91%; /* Light gray border */
+  --input: 220 13% 91%; /* Light gray input border */
+  --ring: 224 85% 60%; /* Ring color, same as primary */
+  --radius: 0.5rem; /* Consistent radius */
 }
 
 /* --- Base Styles --- */
@@ -198,6 +220,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
   background-color: hsla(var(--card), 0.7);
   border-bottom: 1px solid hsl(var(--border));
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 .logo-link { display: inline-flex; align-items: center; gap: 0.75rem; text-decoration: none; }
 .logo-icon {
@@ -270,7 +293,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
 
   .modern-add-btn:hover,
   .modern-add-btn:focus {
-    background-color: hsl(var(--primary-hover));
+    background-color: hsl(224, 85%, 55%); /* Darken primary slightly for hover/focus */
   }
   
   .modern-sync-btn {
@@ -290,7 +313,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
   
   .modern-sync-btn:hover,
   .modern-sync-btn:focus {
-    background-color: hsl(var(--secondary-hover));
+    background-color: hsl(210, 40%, 90%); /* Darken secondary slightly for hover/focus */
   }
 
 /* --- "MODERN EXCEL" TABLE STYLES --- */
@@ -366,7 +389,7 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
 /* Action Buttons */
 #actions-table td:first-child { padding: 0.25rem 0.5rem; width: 80px; }
 .action-buttons-container { display: flex; gap: 0.5rem; align-items: center; }
-.save-row-btn, .delete-row-btn {
+.save-row-btn, .delete-row-btn, .edit-row-btn {
   display: flex; align-items: center; justify-content: center;
   width: 2rem; height: 2rem; border-radius: 0.375rem;
   border: none; cursor: pointer; transition: background-color 0.2s ease;
@@ -375,6 +398,15 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
 .save-row-btn:hover { background-color: hsl(142, 71%, 88%); }
 .delete-row-btn { background-color: hsl(0, 84%, 96%); color: hsl(0, 84%, 40%); }
 .delete-row-btn:hover { background-color: hsl(0, 84%, 92%); }
+
+/* New Edit Button Style */
+.edit-row-btn {
+    background-color: hsl(48, 96%, 90%); /* Light yellow/amber */
+    color: hsl(48, 96%, 30%); /* Darker amber text */
+}
+.edit-row-btn:hover {
+    background-color: hsl(48, 96%, 85%);
+}
 
 /* SVG Icons for Buttons */
 .save-icon::before, .delete-icon::before {
@@ -389,6 +421,15 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
 .delete-icon::before {
   -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>');
   mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>');
+}
+
+/* New Edit Icon Style */
+.edit-icon::before {
+  content: ''; display: block; width: 16px; height: 16px; background-color: currentColor;
+  -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat;
+  -webkit-mask-size: contain; mask-size: contain;
+  -webkit-mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>');
+  mask-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>');
 }
 
 /* Autocomplete Dropdown Styles */
