@@ -191,8 +191,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td class="editable-cell" data-field="unit_price" contenteditable="true">${item.unit_price.toFixed(2)}</td>
                     <td class="editable-cell" data-field="description" contenteditable="true">${item.description || ''}</td>
                     <td class="action-buttons">
-                        <button class="edit-btn button-base button-primary" data-id="${item.item_id}" data-type="item">Save</button>
-                        <button class="delete-btn button-base button-destructive" data-id="${item.item_id}" data-type="item">Delete</button>
+                        <button class="edit-btn button-base button-primary" data-id="${item.item_id}" data-type="item">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Save
+                        </button>
+                        <button class="delete-btn button-base button-destructive" data-id="${item.item_id}" data-type="item">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            Delete
+                        </button>
                     </td>
                 `;
                 itemsTableBody.appendChild(row);
@@ -223,9 +229,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.innerHTML = `
                     <td class="editable-cell" data-field="category_name" contenteditable="true">${category.category_name}</td>
                     <td class="action-buttons">
-                        <button class="edit-btn button-base button-primary" data-id="${category.category_id}" data-type="category">Save</button>
-                        <button class="delete-btn button-base button-destructive" data-id="${category.category_id}" data-type="category">Delete</button>
-                        <button class="open-edit-modal-btn button-base button-secondary" data-id="${category.category_id}" data-type="category">Edit</button>
+                        <button class="edit-btn button-base button-primary" data-id="${category.category_id}" data-type="category">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Save
+                        </button>
+                        <button class="delete-btn button-base button-destructive" data-id="${category.category_id}" data-type="category">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            Delete
+                        </button>
+                        <button class="open-edit-modal-btn button-base button-secondary" data-id="${category.category_id}" data-type="category">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Edit
+                        </button>
                     </td>
                 `;
                 categoriesTableBody.appendChild(row);
@@ -288,9 +303,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     <td>${categoryMap.get(subcategory.category_id) || 'Unknown Category'}</td>
                     <td class="editable-cell" data-field="subcategory_name" contenteditable="true">${subcategory.subcategory_name}</td>
                     <td class="action-buttons">
-                        <button class="edit-btn button-base button-primary" data-id="${subcategory.subcategory_id}" data-type="subcategory" data-category-id="${subcategory.category_id}">Save</button>
-                        <button class="delete-btn button-base button-destructive" data-id="${subcategory.subcategory_id}" data-type="subcategory">Delete</button>
-                        <button class="open-edit-modal-btn button-base button-secondary" data-id="${subcategory.subcategory_id}" data-type="subcategory">Edit</button>
+                        <button class="edit-btn button-base button-primary" data-id="${subcategory.subcategory_id}" data-type="subcategory" data-category-id="${subcategory.category_id}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                            Save
+                        </button>
+                        <button class="delete-btn button-base button-destructive" data-id="${subcategory.subcategory_id}" data-type="subcategory">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                            Delete
+                        </button>
+                        <button class="open-edit-modal-btn button-base button-secondary" data-id="${subcategory.subcategory_id}" data-type="subcategory">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Edit
+                        </button>
                     </td>
                 `;
                 subcategoriesTableBody.appendChild(row);
@@ -417,8 +441,14 @@ document.addEventListener('DOMContentLoaded', () => {
             mrcContainer.querySelectorAll('.remove-mrc-btn').forEach(btn => btn.style.display = 'inline-flex');
 
             actionButtonsContainer.innerHTML = `
-                <button class="save-vendor-btn button-base button-primary" data-vendor-id="${vendor_id}"><i class="fas fa-save"></i> Save</button>
-                <button class="delete-vendor-btn button-base button-destructive" data-vendor-id="${vendor_id}"><i class="fas fa-trash"></i> Delete</button>
+                <button class="save-vendor-btn button-base button-primary" data-vendor-id="${vendor_id}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                    Save
+                </button>
+                <button class="delete-vendor-btn button-base button-destructive" data-vendor-id="${vendor_id}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash-2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+                    Delete
+                </button>
             `;
         } else {
             rowElement.classList.remove('editing');
@@ -431,7 +461,10 @@ document.addEventListener('DOMContentLoaded', () => {
             mrcContainer.querySelectorAll('.remove-mrc-btn').forEach(btn => btn.style.display = 'none');
 
             actionButtonsContainer.innerHTML = `
-                <button class="edit-vendor-btn button-base button-secondary" data-vendor-id="${vendor_id}"><i class="fas fa-edit"></i> Edit</button>
+                <button class="edit-vendor-btn button-base button-secondary" data-vendor-id="${vendor_id}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Edit
+                </button>
             `;
         }
         // Re-attach all necessary event listeners after changing innerHTML
@@ -470,7 +503,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (rowElement.classList.contains('editing')) {
                     newMrcInputGroup.innerHTML = `
                         <input type="text" class="editable-mrc" value="" contenteditable="true" />
-                        <button type="button" class="remove-mrc-btn button-base button-destructive">-</button>
+                        <button type="button" class="remove-mrc-btn button-base button-destructive">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-minus-circle"><circle cx="12" cy="12" r="10"/><line x1="8" x2="16" y1="12" y2="12"/></svg>
+                        </button>
                     `;
                     mrcContainer.insertBefore(newMrcInputGroup, event.target);
                     newMrcInputGroup.querySelector('.editable-mrc').focus();
@@ -604,10 +639,15 @@ async function editVendor(vendor_id, rowElement) {
                     <td class="editable-cell" data-field="tin_number" contenteditable="false">${vendor.tin_number}</td>
                     <td class="mrc-container" data-field="mrc_numbers">
                         ${mrcInputsHtml}
-                        <button type="button" class="add-mrc-btn button-base button-primary" style="display: none;">+</button>
+                        <button type="button" class="add-mrc-btn button-base button-primary" style="display: none;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="16"/><line x1="8" x2="16" y1="12" y2="12"/></svg>
+                        </button>
                     </td>
                     <td class="action-buttons">
-                        <button class="edit-vendor-btn button-base button-secondary" data-vendor-id="${vendor.vendor_id}"><i class="fas fa-edit"></i> Edit</button>
+                        <button class="edit-vendor-btn button-base button-secondary" data-vendor-id="${vendor.vendor_id}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-edit"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            Edit
+                        </button>
                     </td>
                 `;
                 tableBody.appendChild(row);
