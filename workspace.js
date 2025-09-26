@@ -435,10 +435,19 @@ document.addEventListener('DOMContentLoaded', () => {
     let targetUrl = ''; // To store the URL for navigation
 
     const showNotification = (message, type = 'info') => {
+        // Ensure modal is hidden before showing to clear any previous state
+        notificationModal.style.display = 'none'; 
         notificationMessage.textContent = message;
         notificationModal.className = 'notification-modal';
         notificationModal.classList.add(`notification-${type}`);
         notificationModal.style.display = 'flex';
+
+        // Automatically close after 3 seconds, unless it's an error (which needs manual close)
+        if (type !== 'error') {
+            setTimeout(() => {
+                notificationModal.style.display = 'none';
+            }, 3000);
+        }
     };
     closeButton.addEventListener('click', () => { notificationModal.style.display = 'none'; });
     window.addEventListener('click', (event) => { if (event.target === notificationModal) notificationModal.style.display = 'none'; });

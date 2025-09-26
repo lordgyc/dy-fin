@@ -248,11 +248,12 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
 }
 .page-header h1 { margin: 0; font-size: 1.75rem; font-weight: 700; }
 .page-header .subtitle { margin: 0.1rem 0 0; color: hsl(var(--muted-foreground)); }
-.report-controls {
+.table-controls {
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
   align-items: center;
+  flex-wrap: nowrap; /* Ensure buttons stay in one row */
 }
 .report-date-input {
   padding: 0.6rem 1rem;
@@ -300,20 +301,23 @@ body { margin: 0; font-family: 'Inter', sans-serif; background-color: hsl(var(--
     display: flex;
     align-items: center;
     gap: 8px;
-    background-color: hsl(var(--secondary));
-    color: hsl(var(--secondary-foreground));
+    background-color: hsl(var(--primary)); /* Use primary color */
+    color: hsl(var(--primary-foreground)); /* Use primary foreground color */
     border: none;
     border-radius: 6px;
     padding: 10px 18px;
     font-size: 14px;
-    font-weight: 500;
+    font-weight: 600; /* Bolder text */
     cursor: pointer;
-    transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); /* Stronger shadow */
   }
   
   .modern-sync-btn:hover,
   .modern-sync-btn:focus {
-    background-color: hsl(210, 40%, 90%); /* Darken secondary slightly for hover/focus */
+    background-color: hsl(224, 85%, 55%); /* Darken primary slightly for hover/focus */
+    transform: translateY(-2px); /* Lift effect on hover */
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.25); /* Even stronger shadow on hover */
   }
 
 /* --- "MODERN EXCEL" TABLE STYLES --- */
