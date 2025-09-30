@@ -1,43 +1,56 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const loginForm = document.querySelector('.login-panel form');
+    // --- MODIFIED: Selectors updated for the new link-based cards ---
+    const loginForm = document.querySelector('form');
     const usernameInput = document.getElementById('username');
     const passwordInput = document.getElementById('password');
     const loginStatusDiv = document.getElementById('login-status');
     const loadingSpinnerDiv = document.getElementById('loading-spinner');
-    const workspaceButton = document.querySelector('.nav-button:nth-child(1)');
-    const reportsButton = document.querySelector('.nav-button:nth-child(2)');
 
-    // Function to show/hide loading spinner
+    // Select the new <a> tags and their lock icons
+    const wsLink = document.getElementById('wsLink');
+    const wsLock = document.getElementById('wsLock');
+    const rpLink = document.getElementById('rpLink');
+    const rpLock = document.getElementById('rpLock');
+
     function showLoadingSpinner(show) {
-        loadingSpinnerDiv.style.display = show ? 'block' : 'none';
+        if (loadingSpinnerDiv) {
+            loadingSpinnerDiv.style.display = show ? 'block' : 'none';
+        }
     }
 
-    // Function to display login status messages
     function showLoginStatus(message, isError = false) {
         loginStatusDiv.textContent = message;
         loginStatusDiv.style.color = isError ? 'red' : 'green';
         loginStatusDiv.style.display = 'block';
     }
 
-    // Function to update UI based on login status
+    // --- REWRITTEN: Controls the new .locked class and href attribute ---
     function updateUIForLoginStatus() {
         if (sessionStorage.getItem('isLoggedIn') === 'true') {
-            workspaceButton.removeAttribute('disabled');
-            reportsButton.removeAttribute('disabled');
-            workspaceButton.style.opacity = '1';
-            reportsButton.style.opacity = '1';
+            // User is logged in: UNLOCK THE CARDS
+            wsLink.href = 'workspace.html';
+            wsLink.classList.remove('locked');
+            wsLock.textContent = '✅';
+
+            rpLink.href = 'reports.html'; // Assumed filename
+            rpLink.classList.remove('locked');
+            rpLock.textContent = '✅';
         } else {
-            workspaceButton.setAttribute('disabled', 'true');
-            reportsButton.setAttribute('disabled', 'true');
-            workspaceButton.style.opacity = '0.5';
-            reportsButton.style.opacity = '0.5';
+            // User is logged out: LOCK THE CARDS
+            wsLink.removeAttribute('href');
+            wsLink.classList.add('locked');
+            wsLock.textContent = '🔒';
+
+            rpLink.removeAttribute('href');
+            rpLink.classList.add('locked');
+            rpLock.textContent = '🔒';
         }
     }
 
     // Initial UI update on page load
     updateUIForLoginStatus();
 
-    // Handle login form submission
+    // The login form submission logic remains the same
     loginForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         showLoadingSpinner(true);
@@ -49,9 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch('http://localhost:3000/login', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password }),
             });
 
@@ -60,38 +71,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 showLoginStatus(data.message, false);
                 sessionStorage.setItem('isLoggedIn', 'true');
-                updateUIForLoginStatus();
-                // No immediate redirect
             } else {
                 showLoginStatus(data.message || 'Login failed', true);
                 sessionStorage.setItem('isLoggedIn', 'false');
-                updateUIForLoginStatus();
             }
         } catch (error) {
             console.error('Error during login:', error);
             showLoginStatus('An error occurred during login.', true);
             sessionStorage.setItem('isLoggedIn', 'false');
-            updateUIForLoginStatus();
         } finally {
             showLoadingSpinner(false);
-        }
-    });
-
-    // Handle Workspace button click
-    workspaceButton.addEventListener('click', () => {
-        if (sessionStorage.getItem('isLoggedIn') === 'true') {
-            window.location.href = 'workspace.html';
-        } else {
-            showLoginStatus('Please log in to access the Workspace.', true);
-        }
-    });
-
-    // Handle Reports button click
-    reportsButton.addEventListener('click', () => {
-        if (sessionStorage.getItem('isLoggedIn') === 'true') {
-            window.location.href = 'reports.html';
-        } else {
-            showLoginStatus('Please log in to access Reports.', true);
+            updateUIForLoginStatus(); // Update UI after every attempt
         }
     });
 });

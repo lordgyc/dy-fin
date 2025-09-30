@@ -3,102 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Financial Workspace</title>
-    <!-- Link to the NEW modern spreadsheet stylesheet -->
-    <link rel="stylesheet" href="styles.css">
+    <title>DY Finance – Workspace</title>
+    <!-- Link to the NEW modern stylesheet -->
+    <link rel="stylesheet" href="workspace.css">
 </head>
 <body>
 
-    <!-- MODERN HEADER (Added) -->
-    <header class="header">
-        <a href="/" class="logo-link">
-            <span class="logo-icon">ƒ</span>
-            <span class="logo-title">dy finance</span>
-        </a>
-        <div class="header-actions">
-            <button id="back-to-login-btn" class="nav-action-btn button-base button-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-                Back to Login
-            </button>
-            <button id="go-to-reports-btn" class="nav-action-btn button-base button-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 14.8c.4 1 1 1.8 2 2.2V20H1V3h1.8c.4 1 1 1.8 2.2 2.2l.5.5c.3.3.6.5 1 .7l.7.3h3.6l.7-.3c.4-.2.7-.4 1-.7l.5-.5c1.1-1.1 2.5-1.7 4.1-1.7h.5c1.6 0 3 0.6 4.1 1.7l.5.5c.3.3.6.5 1 .7l.7.3h3.6l.7-.3c.4-.2.7-.4 1-.7l.5-.5z"/><path d="M8 18V8m4 10V6m4 12V4"/></svg>
-                Go to Reports
-            </button>
-        </div>
-    </header>
+  <header class="header">
+    <div class="container header-inner">
+      <a class="logo" href="/" aria-label="DY Finance Home">
+        <img src="./assets/dy-finance-logo.svg" alt="DY Finance" />
+      </a>
+      <nav class="nav">
+        <!-- IDs updated to match workspace.js -->
+        <a class="btn btn-ghost" id="back-to-login-btn" href="#">Back to Login</a>
+        <a class="btn btn-primary" id="go-to-reports-btn" href="#">Go to Reports</a>
+      </nav>
+    </div>
+  </header>
 
-    <!-- MAIN PAGE CONTENT -->
-    <main class="page-container">
-        <!-- Page Title & Controls -->
-        <div class="page-header">
-            <div>
-                <h1>Financial Workspace <span id="ethiopian-month" class="subtitle"></span></h1>
-                <p class="subtitle">A modern spreadsheet for your financial data.</p>
-            </div>
-            <div class="table-controls">
-                <button id="sync-logs-btn" class="modern-sync-btn button-base button-secondary">
-                    <!-- Sync Icon SVG (Example - replace with a suitable icon) -->
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14.6667 8C14.6667 11.6819 11.6819 14.6667 8 14.6667C4.3181 14.6667 1.33333 11.6819 1.33333 8C1.33333 4.3181 4.3181 1.33333 8 1.33333C9.48971 1.33333 10.8711 1.83852 11.979 2.6953L12.9467 1.72765C11.6601 0.702758 9.92484 0 8 0C3.58172 0 0 3.58172 0 8C0 12.4183 3.58172 16 8 16C12.4183 16 16 12.4183 16 8H14.6667Z" fill="currentColor"/><path d="M12.6667 3.33331L8 8V1.33331" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                    Sync Logs
-                </button>
-                <button id="add-row-btn" class="modern-add-btn button-base button-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="16"/><line x1="8" x2="16" y1="12" y2="12"/></svg>
-                    Add New Row
-                </button>
-            </div>
-        </div>
-
-        <!-- Table Wrapper for the "Excel" look -->
-        <div class="table-wrapper">
-            <div class="table-scroll-container">
-                <table id="actions-table">
-                    <thead>
-                        <tr>
-                            <!-- Sticky first column -->
-                            <th>Actions</th> 
-                            <th>Vendor Name</th>
-                            <th>MRC No</th>
-                            <th>TIN No</th>
-                            <th>Item Name</th>
-                            <th>Purchase Date</th>
-                            <th>Unit</th>
-                            <th>Quantity</th>
-                            <th>Unit Price</th>
-                            <th>VAT %</th>
-                            <th>VAT On/Off</th>
-                            <th>Base Total</th>
-                            <th>Total VAT</th>
-                            <th>FS Number</th>
-                            <th>Subtotal</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <!-- Your workspace.js will populate this area -->
-                    </tbody>
-                    <tfoot>
-                        <tr id="summary-row">
-                            <td colspan="10">Summary</td>
-                            <td></td>
-                            <td id="summary-vat-exclude">0.00</td>
-                            <td id="summary-total-vat">0.00</td>
-                            <td>Totals</td>
-                            <td id="summary-subtotal">0.00</td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        </div>
-    </main>
-
-    <!-- Your existing Notification Modal (it will be styled by the new CSS) -->
-    <div id="notification-modal" class="notification-modal">
-        <div class="modal-content">
-            <span class="close-button">&times;</span>
-            <p id="notification-message"></p>
-        </div>
+  <main class="container">
+    <div class="page-header">
+      <div>
+        <!-- Added a container for title and subtitle for better layout -->
+        <h1 class="page-title">Workspace <span id="ethiopian-month" style="font-size: 1.2rem; color: var(--text-muted); font-weight: 500;"></span></h1>
+        <p style="margin-top: 0.5rem; color: var(--text-muted);">A modern spreadsheet for your financial data.</p>
+      </div>
+      <div class="controls">
+        <!-- IDs updated to match workspace.js -->
+        <button class="btn" id="sync-logs-btn">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9c-4.97 0-9-4.03-9-9s4.03-9 9-9"/><path d="M21 3v5h-5"/><path d="M3 12a9 9 0 0 1 9-9c1.61 0 3.1.42 4.37 1.17L21 3"/></svg>
+          <span>Sync Logs</span>
+        </button>
+        <button class="btn btn-primary" id="add-row-btn">Add New Row</button>
+      </div>
     </div>
 
-    <!-- Your existing JS file - NO CHANGES NEEDED -->
-    <script src="workspace.js"></script>
+    <section class="card">
+      <div class="card-header">
+        <strong>Purchase Entries</strong>
+      </div>
+      <div class="card-body">
+        <div class="table-wrapper">
+          <!-- Table ID updated to match workspace.js -->
+          <table class="table" id="actions-table">
+            <thead>
+              <tr>
+                <th class="sticky-col">Actions</th>
+                <th>Vendor Name</th>
+                <th>MRC No</th>
+                <th>TIN No</th>
+                <th>Item Name</th>
+                <th>Purchase Date</th>
+                <th>Unit</th>
+                <th class="is-numeric">Quantity</th>
+                <th class="is-numeric">Unit Price</th>
+                <th class="is-numeric">VAT %</th>
+                <th class="is-center">VAT On/Off</th>
+                <th class="is-numeric">Base Total</th>
+                <th class="is-numeric">Total VAT</th>
+                <th>FS Number</th>
+                <th class="is-numeric">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <!-- This area will be populated by workspace.js -->
+            </tbody>
+            <tfoot>
+              <!-- Summary Row IDs updated to match workspace.js -->
+              <tr>
+                <td class="sticky-col"><strong>Summary</strong></td>
+                <td colspan="10"></td>
+                <td class="is-numeric" id="summary-vat-exclude">0.00</td>
+                <td class="is-numeric" id="summary-total-vat">0.00</td>
+                <td>Totals</td>
+                <td class="is-numeric"><strong id="summary-subtotal">0.00</strong></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Notification Modal from your old HTML, to be styled by the new CSS -->
+  <div id="notification-modal" class="notification-modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <p id="notification-message"></p>
+    </div>
+  </div>
+
+  <!-- Your existing JS file - with a few necessary modifications -->
+  <script src="workspace.js"></script>
+
 </body>
 </html>

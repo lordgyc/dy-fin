@@ -3,389 +3,240 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reports</title>
-    <link rel="stylesheet" href="rstyle.css"> <!-- Link to the new reports stylesheet -->
+    <title>DY Finance – Reports</title>
+    <link rel="stylesheet" href="./report.css">
     <script type="text/javascript" src="https://unpkg.com/xlsx@0.15.1/dist/xlsx.full.min.js"></script>
 </head>
 <body>
 
     <header class="header">
-        <a href="/" class="logo-link">
-            <span class="logo-icon">ƒ</span>
-            <span class="logo-title">dy finance</span>
-        </a>
-        <div class="header-actions">
-            <button id="back-to-login-btn" class="nav-action-btn button-base button-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-                Back to Login
-            </button>
-            <button id="go-to-workspace-btn" class="nav-action-btn button-base button-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="14" y="3" rx="1"/><path d="M10 21V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h6v-2.5l-.5-.5c-1.3-.8-1.7-2-2-3"/><path d="M7 14v4"/><path d="M10 11V5"/><path d="M22 21V7a2 2 0 0 0-2-2h-6c-1.3 0-2.6.4-3.5 1.2L11 8"/></svg>
-                Go to Workspace
-            </button>
-            <button id="vat-report-btn" class="report-action-btn button-base button-secondary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="17" x2="12" y2="11"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
-                VAT Report
-            </button>
-            <button id="jv-report-btn" class="report-action-btn button-base button-secondary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/></svg>
-                JV Report
-            </button>
-            <button id="summary-report-btn" class="report-action-btn button-base button-secondary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m18 10-6 6-4-4-3 3"/></svg>
-                Summary Report
-            </button>
-            <button id="management-button" class="management-action-btn button-base button-primary">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-settings"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.78 1.35a2 2 0 0 0 .73 2.73l.15.08a2 2 0 0 1 1 1.73v.44a2 2 0 0 1-1 1.73l-.15.08a2 2 0 0 0-.73 2.73l.78 1.35a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.78-1.35a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.73v-.44a2 2 0 0 1 1-1.73l.15-.08a2 2 0 0 0 .73-2.73l-.78-1.35a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-                Management
-            </button>
+        <div class="container header-inner">
+            <a class="logo" href="./index.html" aria-label="DY Finance Home">
+                <img src="./assets/dy-finance-logo.svg" alt="DY Finance" />
+            </a>
+            <nav class="nav">
+                <a id="back-to-login-btn" class="btn btn-ghost" href="./index.html">Back to Login</a>
+                <a id="go-to-workspace-btn" class="btn btn-primary" href="./workspace.html">Go to Workspace</a>
+                <div class="separator"></div>
+                <button id="vat-report-btn" class="btn" data-section="vat-report-section">VAT Report</button>
+                <button id="jv-report-btn" class="btn" data-section="jv-report-section">JV Report</button>
+                <button id="summary-report-btn" class="btn" data-section="summary-report-section">Summary Report</button>
+                <button id="management-button" class="btn" data-section="management-section">Management</button>
+            </nav>
         </div>
     </header>
 
-    <main class="page-container">
-        <div id="reports-page-default-message">
-            <h1>Reports Page</h1>
-            <p>Select a report from the header to get started.</p>
-        </div>
+    <main class="container">
+        <!-- Default Welcome Message -->
+        <section id="reports-page-default-message" class="card welcome-card">
+            <h1>Reports & Management</h1>
+            <p class="card-desc">Select a report from the header to view data or manage application settings.</p>
+        </section>
 
-        <!-- VAT Report Section (initially hidden) -->
-        <section id="vat-report-section" style="display: none;">
+        <!-- VAT Report Section -->
+        <section id="vat-report-section" class="page-section" style="display: none;">
             <div class="page-header">
                 <h1>VAT Report</h1>
-                <div class="report-controls">
-                    <label for="start-date">Start Date:</label>
-                    <input type="date" id="start-date" class="report-date-input">
-                    <label for="end-date">End Date:</label>
-                    <input type="date" id="end-date" class="report-date-input">
-                    <button id="generate-vat-report-btn" class="modern-add-btn button-base button-primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 14.8c.4 1 1 1.8 2 2.2V20H1V3h1.8c.4 1 1 1.8 2.2 2.2l.5.5c.3.3.6.5 1 .7l.7.3h3.6l.7-.3c.4-.2.7-.4 1-.7l.5-.5c1.1-1.1 2.5-1.7 4.1-1.7h.5c1.6 0 3 0.6 4.1 1.7l.5.5c.3.3.6.5 1 .7l.7.3h3.6l.7-.3c.4-.2.7-.4 1-.7l.5-.5z"/><path d="M8 18V8m4 10V6m4 12V4"/></svg>
-                        Generate Report
-                    </button>
-                    <button id="export-vat-report-btn" class="modern-add-btn button-base button-primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L15.5 2Z"/><path d="M14 2v6h6"/><path d="M10 11H8"/><path d="M16 16H8"/><path d="M16 12H8"/></svg>
-                        Export to Excel
-                    </button>
+                <div class="controls">
+                    <input type="date" id="start-date" class="input" title="Start Date">
+                    <input type="date" id="end-date" class="input" title="End Date">
+                    <button id="generate-vat-report-btn" class="btn">Generate</button>
+                    <button id="export-vat-report-btn" class="btn btn-primary">Export to Excel</button>
                 </div>
             </div>
+            <div class="card"><div class="table-wrapper"><table class="table" id="vat-report-table"><thead><tr><th>Vendor Name</th><th>TIN No</th><th>MRC No</th><th>Purchase Date</th><th>Item Name</th><th class="is-numeric">Quantity</th><th class="is-numeric">Unit Price</th><th class="is-numeric">VAT %</th><th class="is-numeric">VAT Amount</th><th class="is-numeric">Base Total</th><th class="is-numeric">Total Amount</th></tr></thead><tbody><tr><td colspan="11" class="placeholder-cell">Generate a report to see data.</td></tr></tbody><tfoot><tr><td colspan="9"><strong>Total Summary</strong></td><td id="summary-vat-amount" class="is-numeric">0.00</td><td id="summary-base-total" class="is-numeric">0.00</td><td id="summary-total-amount" class="is-numeric"><strong>0.00</strong></td></tr></tfoot></table></div></div>
+        </section>
 
-            <div class="table-wrapper">
-                <div class="table-scroll-container">
-                    <table id="vat-report-table">
+        <!-- JV Report Section -->
+        <section id="jv-report-section" class="page-section" style="display: none;">
+            <div class="page-header">
+                <h1>JV Report</h1>
+                <div class="controls">
+                    <input type="date" id="single-date" class="input" title="Select Date">
+                    <button id="generate-jv-report-btn" class="btn btn-primary">Generate</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table" id="jv-report-table">
                         <thead>
                             <tr>
-                                <th>Vendor Name</th>
-                                <th>TIN No</th>
-                                <th>MRC No</th>
-                                <th>Purchase Date</th>
-                                <th>Item Name</th>
-                                <th>Quantity</th>
-                                <th>Unit Price</th>
-                                <th>VAT %</th>
-                                <th>VAT Amount</th>
-                                <th>Base Total</th>
-                                <th>Total Amount</th>
+                                <th rowspan="2">Items</th><th colspan="2">Debt</th><th colspan="2">Credits</th>
+                            </tr>
+                            <tr>
+                                <th class="is-numeric">Birr</th><th class="is-numeric">Cent</th><th class="is-numeric">Birr</th><th class="is-numeric">Cent</th>
                             </tr>
                         </thead>
-                        <tbody>
-                            <!-- Report data will be populated here by reports.js -->
-                        </tbody>
-                        <tfoot>
-                            <tr id="vat-report-summary-row">
-                                <td colspan="7">Total Summary</td>
-                                <td id="summary-vat-amount">0.00</td>
-                                <td id="summary-base-total">0.00</td>
-                                <td id="summary-total-amount">0.00</td>
-                            </tr>
-                        </tfoot>
+                        <tbody><tr><td colspan="5" class="placeholder-cell">Generate a report to see data.</td></tr></tbody>
+                        <tfoot></tfoot>
                     </table>
                 </div>
             </div>
         </section>
-        <section id="jv-report-section" style="display: none">
-            <div class="page-headers">
-              <h1>JV Report</h1>
-              <div class="report-controlss">
-                <label for="single-date"> Single Date:</label>
-                <input type="date" id="single-date" class="report-date-input">
-                <button id="generate-jv-report-btn" class="modern-add-btn button-base button-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 14.8c.4 1 1 1.8 2 2.2V20H1V3h1.8c.4 1 1 1.8 2.2 2.2l.5.5c.3.3.6.5 1 .7l.7.3h3.6l.7-.3c.4-.2.7-.4 1-.7l.5-.5c1.1-1.1 2.5-1.7 4.1-1.7h.5c1.6 0 3 0.6 4.1 1.7l.5.5c.3.3.6.5 1 .7l.7.3h3.6l.7-.3c.4-.2.7-.4 1-.7l.5-.5z"/><path d="M8 18V8m4 10V6m4 12V4"/></svg>
-                    Generate Report
-                </button>
-              </div>
-              <div class="table-wrapper">
-                <div class="table-scroll-container">
-                  <table id="jv-report-table">
-                    <thead>
-                      <tr>
-                        <th rowspan="2">Items</th>
-                        <th colspan="2">Debt</th>
-                        <th colspan="2">Credits</th>
-                      </tr>
-                      <tr>
-                        <th>Birr</th>
-                        <th>Cent</th>
-                        <th>Birr</th>
-                        <th>Cent</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                     
-                    </tbody>
-                    <tfoot>
-                  
-                    </tfoot>
-                  </table>
+
+        <!-- Summary Report Section -->
+        <section id="summary-report-section" class="page-section" style="display: none;">
+            <div class="page-header">
+                <h1>Summary Report</h1>
+                <div class="controls">
+                    <input type="date" id="summary-start-date" class="input" title="Start Date">
+                    <input type="date" id="summary-end-date" class="input" title="End Date">
+                    <button id="generate-summary-report-btn" class="btn btn-primary">Generate</button>
                 </div>
-              </div>
             </div>
-            </section>
-            <section id="management-section"  style="display: none;">
-                <h2>Management</h2>
-              
-                <!-- Tab Buttons -->
-                <div class="tabs">
-                  <button class="tab-button active button-base button-secondary" data-tab="vendor-tab">Vendor</button>
-                  <button class="tab-button button-base button-secondary" data-tab="items-tab">Items</button>
+            <div class="card">
+                <div class="table-wrapper"><table class="table" id="summary-report-table"><thead><tr><th>Date</th></tr></thead><tbody><tr><td colspan="1" class="placeholder-cell">Generate a report to see data.</td></tr></tbody></table></div>
+                <div class="summary-pagination-controls" style="display: none; justify-content: flex-end; padding: 1rem; gap: 0.5rem;">
+                    <button id="prev-summary-page-btn" class="btn">Previous</button>
+                    <span id="summary-page-info" style="align-self: center;"></span>
+                    <button id="next-summary-page-btn" class="btn">Next</button>
                 </div>
-              
-                <!-- Tab Contents -->
-                <div class="tab-contents">
-                  <!-- Vendor Tab -->
-                  <div id="vendor-tab" class="tab-content active">
-                    <h3>Vendors</h3>
-                    <section id="vendor-management">
-                        <button id="openModalBtn" class="modern-add-btn button-base button-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-user-plus"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
-                            Add Vendor
-                        </button>
+            </div>
+        </section>
 
-                        <div class="table-wrapper" style="margin-top: 1rem;">
-                            <div class="table-scroll-container">
-                                <table id="vendors-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Vendor Name</th>
-                                            <th>TIN Number</th>
-                                            <th>MRC Numbers</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Vendor rows will be inserted here by reports.js -->
-                                    </tbody>
-                                </table>
-                            </div>
+        <!-- Management Section -->
+        <section id="management-section" class="page-section" style="display: none;">
+            <div class="page-header"><h1>Management</h1></div>
+            <div class="card">
+                <div class="tabs">
+                    <button class="tab-button active" data-tab="vendor-tab">Vendors</button>
+                    <button class="tab-button" data-tab="items-tab">Items & Categories</button>
+                </div>
+                <div class="card-body">
+                    <div id="vendor-tab" class="tab-content active">
+                        <div class="content-header">
+                            <h3>Manage Vendors</h3>
+                            <button id="openModalBtn" data-action="add-vendor" class="btn btn-primary">Add Vendor</button>
                         </div>
-                        <!-- Add Vendor Button -->
-<!-- Modal -->
-                            <div id="addVendorModal" class="modal">
-                            <div class="modal-content">
-                                <span class="close">&times;</span>
-                                <h2>Add Vendor</h2>
-                                <form id="addVendorForm">
-                                <label for="vendorName">Vendor Name:</label>
-                                <input type="text" id="vendorName" name="vendorName" required />
-
-                                <label for="tinNumber">TIN Number:</label>
-                                <input type="text" id="tinNumber" name="tinNumber" required />
-
-                                <div id="mrcContainer">
-                                    <label>MRC Numbers:</label>
-                                    <div class="mrc-input">
-                                    <input type="text" name="mrcNumbers[]" />
-                                    <button type="button" class="removeMrc button-base button-destructive">Remove</button>
-                                    </div>
-                                </div>
-                                <button type="button" id="addMrcBtn" class="button-base button-primary">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="16"/><line x1="8" y1="12" x2="16" y1="12"/></svg>
-                                    Add MRC
-                                </button>
-                                <button type="submit" class="button-base button-primary">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-save"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                                    Save Vendor
-                                </button>
-                                </form>
-                            </div>
-                            </div>
-
-                      </section>
-                      
-                  </div>
-              
-                  <!-- Items Tab -->
-                  <div id="items-tab" class="tab-content">
-                    <!-- Controls for Category and Subcategory Modals -->
-                    <div class="management-section-controls">
-                        <button id="openAddCategoryModalBtn" class="modern-add-btn button-base button-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-plus"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.98l-.81-1.2A2 2 0 0 0 4.7 2H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h16Z"/></svg>
-                            Add New Category
-                        </button>
-                        <button id="openAddSubcategoryModalBtn" class="modern-add-btn button-base button-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-folder-open"><path d="M12 10v6"/><path d="M9 13h6"/><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.93a2 2 0 0 1 1.66.9l.82 1.2A2 2 0 0 0 12.42 6H20a2 2 0 0 1 2 2Z"/><path d="M2 12h20"/></svg>
-                            Add New Subcategory
-                        </button>
-                    </div>
-
-                    <!-- Category Management Table (initially hidden, but can be toggled if needed later) -->
-                    <div id="categoryTableContainer" style="display: none;">
-                        <h3>Categories</h3>
-                        <div class="table-wrapper" style="margin-top: 1rem;">
-                            <div class="table-scroll-container">
-                                <table id="categories-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Category Name</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Categories will be loaded here -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Subcategory Management Table (initially hidden, but can be toggled if needed later) -->
-                    <div id="subcategoryTableContainer" style="display: none;">
-                        <h3>Subcategories</h3>
-                        <div class="table-wrapper" style="margin-top: 1rem;">
-                            <div class="table-scroll-container">
-                                <table id="subcategories-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Category</th>
-                                            <th>Subcategory Name</th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <!-- Subcategories will be loaded here -->
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-
-                    <h3>Items</h3>
-                    <div class="management-section-controls">
-                        <select id="itemCategorySelect" class="report-date-input"></select>
-                        <select id="itemSubcategorySelect" class="report-date-input"></select>
-                        <input type="text" id="newItemName" placeholder="New Item Name" class="report-date-input">
-                        <input type="number" id="newItemUnitPrice" placeholder="Unit Price" class="report-date-input">
-                        <input type="text" id="newItemDescription" placeholder="Description" class="report-date-input">
-                        <button id="addItemBtn" class="modern-add-btn button-base button-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-package-plus"><path d="M12 2h3a2 2 0 0 1 2 2v2"/><path d="M18 6h3.5a.5.5 0 0 1 0 1H18v10a2 2 0 0 1-2 2h-4v-.5"/><path d="M3.5 10.5H7l1.5 3L10 9l1.5 3L14 9h3.5"/><path d="M2 19h10"/><path d="M5 22V10"/><path d="M10 22V10"/><path d="M7 22H4a2 2 0 0 1-2-2v-7.5"/><path d="M22 7.5V11"/><path d="M12 10v6"/><path d="M9 13h6"/></svg>
-                            Add Item
-                        </button>
-                    </div>
-                    <div class="table-wrapper" style="margin-top: 1rem;">
-                        <div class="table-scroll-container">
-                            <table id="items-table">
-                                <thead>
-                                    <tr>
-                                        <th>Item Name</th>
-                                        <th>Category</th>
-                                        <th>Subcategory</th>
-                                        <th>Unit Price</th>
-                                        <th>Description</th>
-                                        <th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <!-- Items will be loaded here -->
-                                </tbody>
+                        <div class="table-wrapper">
+                            <table id="vendors-table" class="table">
+                               <thead><tr><th>Vendor Name</th><th>TIN Number</th><th>MRC Numbers</th><th>Actions</th></tr></thead>
+                               <tbody><td colspan="4" class="placeholder-cell">Loading vendors...</td></tbody>
                             </table>
                         </div>
                     </div>
-                  </div>
-              </section>
-
-        <section id="summary-report-section" style="display: none;">
-            <div class="page-header">
-                <h1>Summary Report</h1>
-                <div class="report-controls">
-                    <label for="summary-start-date">Start Date:</label>
-                    <input type="date" id="summary-start-date" class="report-date-input">
-                    <label for="summary-end-date">End Date:</label>
-                    <input type="date" id="summary-end-date" class="report-date-input">
-                    <button id="generate-summary-report-btn" class="modern-add-btn button-base button-primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.2 14.8c.4 1 1 1.8 2 2.2V20H1V3h1.8c.4 1 1 1.8 2.2 2.2l.5.5c.3.3.6.5 1 .7l.7.3h3.6l.7-.3c.4-.2.7-.4 1-.7l.5-.5c1.1-1.1 2.5-1.7 4.1-1.7h.5c1.6 0 3 0.6 4.1 1.7l.5.5c.3.3.6.5 1 .7l.7.3h3.6l.7-.3c.4-.2.7-.4 1-.7l.5-.5z"/><path d="M8 18V8m4 10V6m4 12V4"/></svg>
-                        Generate Report
-                    </button>
+                    <div id="items-tab" class="tab-content">
+                         <div class="content-header">
+                            <h3>Manage Categories</h3>
+                            <div class="controls">
+                                <button id="openAddCategoryModalBtn" class="btn">Add New Category</button>
+                                <button id="openAddSubcategoryModalBtn" class="btn">Add New Subcategory</button>
+                            </div>
+                        </div>
+                        <div class="content-header" style="border-top: 1px solid var(--border); margin-top: 1.5rem; padding-top: 1.5rem;">
+                            <h3>Manage Items</h3>
+                        </div>
+                        <div class="controls" style="margin-bottom: 1.5rem;">
+                            <select id="itemCategorySelect" class="input"></select>
+                            <select id="itemSubcategorySelect" class="input"></select>
+                            <input type="text" id="newItemName" placeholder="New Item Name" class="input">
+                            <input type="number" id="newItemUnitPrice" placeholder="Unit Price" class="input">
+                            <input type="text" id="newItemDescription" placeholder="Description" class="input">
+                            <button id="addItemBtn" class="btn btn-primary">Add Item</button>
+                        </div>
+                        <div class="table-wrapper">
+                             <table id="items-table" class="table">
+                               <thead><tr><th>Item Name</th><th>Category</th><th>Subcategory</th><th class="is-numeric">Unit Price</th><th>Description</th><th>Actions</th></tr></thead>
+                               <tbody><tr><td colspan="6" class="placeholder-cell">Select a category to see items.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
-            </div>
-
-            <div class="table-wrapper">
-                <div class="table-scroll-container">
-                    <table id="summary-report-table">
-                        <thead>
-                            <tr>
-                                <th>Date</th>
-                                <!-- Item columns will be inserted here by reports.js -->
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Report data will be populated here by reports.js -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="summary-pagination-controls" style="display: none;">
-                <button id="prev-summary-page-btn" class="button-base button-secondary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-left"><polyline points="15 18 9 12 15 6"/></svg>
-                    Previous
-                </button>
-                <span id="summary-page-info"></span>
-                <button id="next-summary-page-btn" class="button-base button-secondary">
-                    Next
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-chevron-right"><polyline points="9 18 15 12 9 6"/></svg>
-                </button>
             </div>
         </section>
-
-
-
     </main>
 
-    <!-- Modals for Category and Subcategory Forms -->
+    <!-- MODALS -->
+    <div id="addVendorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="vendorModalTitle">Add New Vendor</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="addVendorForm" class="modal-body">
+                <input type="hidden" id="vendorId" name="vendorId">
+                <div class="form-group">
+                    <label for="vendorName">Vendor Name</label>
+                    <input type="text" id="vendorName" name="vendorName" class="input" required />
+                </div>
+                <div class="form-group">
+                    <label for="tinNumber">TIN Number</label>
+                    <input type="text" id="tinNumber" name="tinNumber" class="input" required />
+                </div>
+                <div class="form-group">
+                    <label>MRC Numbers</label>
+                    <div id="mrcContainer">
+                         <div class="mrc-input-group">
+                            <input type="text" name="mrcNumbers[]" class="input"/>
+                         </div>
+                    </div>
+                    <button type="button" id="addMrcBtn" class="btn" style="margin-top: 0.5rem;">Add MRC Field</button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn close-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Vendor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <div id="addCategoryModal" class="modal">
         <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Add Category</h2>
-            <div class="management-section-controls">
-                <input type="text" id="newCategoryNameModal" placeholder="New Category Name" class="report-date-input">
-                <button id="addCategoryBtnModal" class="modern-add-btn button-base button-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="16"/><line x1="8" x2="16" y1="12" y2="12"/></svg>
-                    Add Category
-                </button>
+            <div class="modal-header">
+                <h2>Add Category</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newCategoryNameModal">Category Name</label>
+                    <input type="text" id="newCategoryNameModal" placeholder="New Category Name" class="input">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn close-btn">Cancel</button>
+                <button id="addCategoryBtnModal" class="btn btn-primary">Add Category</button>
             </div>
         </div>
     </div>
 
     <div id="addSubcategoryModal" class="modal">
         <div class="modal-content">
-            <span class="close">&times;</span>
-            <h2>Add Subcategory</h2>
-            <div class="management-section-controls">
-                <select id="subcategoryCategorySelectModal" class="report-date-input"></select>
-                <input type="text" id="newSubcategoryNameModal" placeholder="New Subcategory Name" class="report-date-input">
-                <button id="addSubcategoryBtnModal" class="modern-add-btn button-base button-primary">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus-circle"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="16"/><line x1="8" x2="16" y1="12" y2="12"/></svg>
-                    Add Subcategory
-                </button>
+            <div class="modal-header">
+                <h2>Add Subcategory</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="subcategoryCategorySelectModal">Parent Category</label>
+                    <select id="subcategoryCategorySelectModal" class="input"></select>
+                </div>
+                <div class="form-group">
+                    <label for="newSubcategoryNameModal">Subcategory Name</label>
+                    <input type="text" id="newSubcategoryNameModal" placeholder="New Subcategory Name" class="input">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn close-btn">Cancel</button>
+                <button id="addSubcategoryBtnModal" class="btn btn-primary">Add Subcategory</button>
             </div>
         </div>
     </div>
 
-    <!-- Custom Notification Modal -->
     <div id="customNotificationModal" class="modal">
-        <div class="modal-content notification-modal">
-            <span class="close-notification">&times;</span>
-            <p id="notificationMessage"></p>
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+             <div class="modal-header">
+                <h2>Notification</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="notificationMessage" style="font-size: 1rem;"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary close-btn">OK</button>
+            </div>
         </div>
     </div>
 
-    <script src="reports.js"></script>
+    <script src="./reports.js"></script>
 </body>
 </html>
