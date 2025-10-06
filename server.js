@@ -59,11 +59,14 @@ module.exports = (userDataPath) => {
                   FOREIGN KEY (category_id) REFERENCES Categories(category_id) ON DELETE RESTRICT,
                   FOREIGN KEY (subcategory_id) REFERENCES Subcategories(subcategory_id) ON DELETE SET NULL
               );`);
+              // *** MODIFICATION START ***
+              // Added posted_date column
               db.run(`CREATE TABLE IF NOT EXISTS Purchase_Records (
                   purchase_id TEXT PRIMARY KEY,
                   vendor_id TEXT NOT NULL,
                   item_id TEXT NOT NULL,
                   purchase_date DATE NOT NULL,
+                  posted_date DATE, 
                   unit TEXT NOT NULL,
                   quantity REAL NOT NULL,
                   unit_price REAL NOT NULL,
@@ -72,9 +75,11 @@ module.exports = (userDataPath) => {
                   total_amount REAL NOT NULL,
                   vat_percentage REAL,
                   mrc_number TEXT,
+                  status TEXT,
                   FOREIGN KEY (vendor_id) REFERENCES Vendors(vendor_id) ON DELETE RESTRICT,
                   FOREIGN KEY (item_id) REFERENCES Items(item_id) ON DELETE RESTRICT
               );`);
+              // *** MODIFICATION END ***
 
               db.run(`CREATE TABLE IF NOT EXISTS Activity_Logs (
                   log_id TEXT PRIMARY KEY,
@@ -952,22 +957,23 @@ app.get('/vendors', (req, res) => {
         return res.status(400).send('Start date and end date are required for export.');
     }
 
-    const sql = `
+       const sql = `
         SELECT
             v.vendor_name AS "Vendor Name", 
             v.tin_number AS "TIN No",
+            pr.mrc_number AS "MRC No",
             pr.purchase_date AS "Purchase Date", 
             i.item_name AS "Item Name",
             pr.quantity AS "Quantity", 
             pr.unit_price AS "Unit Price", 
             pr.vat_percentage AS "VAT %",
             pr.vat_amount AS "VAT Amount",
-            (pr.total_amount - pr.vat_amount) AS "Base Total",
+            (pr.total_amount - COALESCE(pr.vat_amount, 0)) AS "Base Total",
             pr.total_amount AS "Total Amount"
         FROM Purchase_Records pr
         JOIN Vendors v ON pr.vendor_id = v.vendor_id
         JOIN Items i ON pr.item_id = i.item_id
-        WHERE DATE(pr.purchase_date) BETWEEN ? AND ?
+        WHERE DATE(pr.purchase_date) BETWEEN ? AND ? AND pr.vat_amount > 0
         ORDER BY v.vendor_name, pr.purchase_date;
     `;
 
@@ -1046,83 +1052,144 @@ app.get('/vendors', (req, res) => {
       });
   });
 
-  // Endpoint to save purchase records
-  app.post('/save-purchase-records', (req, res) => {
-      const record = req.body; // Expect a single record object
-
-      if (!record || typeof record !== 'object') {
-          return res.status(400).json({ message: 'Invalid purchase record provided.' });
+  // *** START: UPDATED AND FIXED ENDPOINT ***
+  // Endpoint to save or update purchase records
+  app.post('/save-purchase-records', async (req, res) => {
+      const records = req.body;
+      if (!Array.isArray(records) || records.length === 0) {
+          return res.status(400).json({ message: 'Invalid or empty records data provided.' });
       }
 
-      db.serialize(() => {
-          db.run('BEGIN TRANSACTION;');
+      // Use a separate function to process each record
+      const processRecord = (record) => {
+          return new Promise(async (resolve, reject) => {
+              // --- Auto-create Vendor/Item if they don't exist ---
+              let vendorId = record.vendorId;
+              if (!vendorId && record.vendorName) {
+                  try {
+                      const newVendor = await new Promise((res, rej) => {
+                          const newId = uuidv4();
+                          // First, try to insert. If it fails due to UNIQUE constraint, do nothing.
+                          db.run('INSERT INTO Vendors (vendor_id, vendor_name, tin_number) VALUES (?, ?, ?)', [newId, record.vendorName, record.tinNo], function(err) {
+                              if (err && err.code !== 'SQLITE_CONSTRAINT') {
+                                  return rej(err);
+                              }
+                              // Always query for the vendor by TIN to get the correct ID, whether it was just inserted or already existed.
+                              db.get('SELECT vendor_id FROM Vendors WHERE tin_number = ?', [record.tinNo], (err, row) => {
+                                  if (err) return rej(err);
+                                  res(row ? row.vendor_id : null);
+                              });
+                          });
+                      });
+                      vendorId = newVendor;
+                  } catch (err) { return reject(err); }
+              }
 
-          const stmt = db.prepare(
-              `INSERT INTO Purchase_Records (
-                  purchase_id, vendor_id, item_id, purchase_date, unit, quantity, unit_price, vat_amount, fs_number, total_amount, vat_percentage, mrc_number
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-          );
+              let itemId = record.itemId;
+              if (!itemId && record.itemName) {
+                  try {
+                      const newItem = await new Promise((res, rej) => {
+                          const newId = uuidv4();
+                          // Using 'default-category-id' as a placeholder since category isn't selected in the UI.
+                          // In a real application, you'd want a more robust way to handle this.
+                          db.run('INSERT INTO Items (item_id, item_name, category_id, unit_price) VALUES (?, ?, ?, ?)', [newId, record.itemName, 'default-category-id', record.unitPrice], function(err) {
+                             if(err && err.code !== 'SQLITE_CONSTRAINT') return rej(err);
+                             db.get('SELECT item_id FROM Items WHERE item_name = ?', [record.itemName], (err, row) => {
+                                 if (err) return rej(err);
+                                 res(row ? row.item_id : null);
+                             });
+                          });
+                      });
+                      itemId = newItem;
+                  } catch(err) { return reject(err); }
+              }
+              // --- End of auto-creation ---
 
-          const purchase_id = uuidv4();
-          const vendor_id = record.vendorId;
-          const item_id = record.itemId;
-          const totalAmount = record.baseTotal + record.totalVat; // Calculate total from baseTotal and totalVat
+              if (!vendorId || !itemId) {
+                  return reject(new Error(`Could not find or create vendor/item for record: ${record.itemName || 'N/A'}`));
+              }
+              
+              if (record.purchaseId) { // This is an existing record, so UPDATE it.
+                  const updateQuery = `
+                      UPDATE Purchase_Records
+                      SET vendor_id = ?, item_id = ?, purchase_date = ?, unit = ?, quantity = ?,
+                          unit_price = ?, vat_amount = ?, fs_number = ?, total_amount = ?,
+                          vat_percentage = ?, mrc_number = ?, status = ?
+                      WHERE purchase_id = ?`;
+                  db.run(updateQuery, [
+                      vendorId, itemId, record.purchaseDate, record.unit, record.quantity,
+                      record.unitPrice, record.vat_amount, record.fsNumber, record.total_amount,
+                      record.vatPercentage, record.mrcNo, record.status, record.purchaseId
+                  ], function(err) {
+                      if (err) return reject(err);
+                      console.log(`Updated record ${record.purchaseId}`);
+                      // Log the update activity
+                      const log_id = uuidv4();
+                      db.run(`INSERT INTO Activity_Logs (log_id, action_type, table_name, record_id, new_data) VALUES (?, 'UPDATE', 'Purchase_Records', ?, ?)`, [log_id, record.purchaseId, JSON.stringify(record)]);
+                      resolve({ id: record.purchaseId, status: 'updated' });
+                  });
 
-          stmt.run(
-              purchase_id, vendor_id, item_id, record.purchaseDate, record.unit,
-              record.quantity, record.unitPrice, record.totalVat, record.fsNumber, totalAmount, record.vatPercentage, record.mrcNo
-          , function(err) {
-              if (err) {
-                  console.error('Error inserting record:', err.message);
-                  db.run('ROLLBACK;'); // Rollback on error
-                  return res.status(500).json({ error: err.message });
-              } else {
-                  console.log(`A row has been inserted with rowid ${purchase_id}`);
-
-                  // Insert into Activity_Logs
-                  const log_id = uuidv4();
-                  const timestamp = new Date().toISOString();
-                  const action_type = 'INSERT';
-                  const table_name = 'Purchase_Records';
-                  const record_id = purchase_id;
-                  const new_data = JSON.stringify(record);
-
-                  db.run(
-                      `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, new_data) VALUES (?, ?, ?, ?, ?, ?)`,
-                      [log_id, timestamp, action_type, table_name, record_id, new_data],
-                      (logErr) => {
-                          if (logErr) {
-                              console.error('Error inserting into Activity_Logs:', logErr.message);
-                              // Decide how to handle log insertion failure (e.g., rollback main transaction or just log error)
-                              // For now, we'll proceed with committing the main transaction but log the error.
-                          }
-                      }
-                  );
-
-                  stmt.finalize();
-                  db.run('COMMIT;', (err) => {
-                      if (err) {
-                          res.status(500).json({ error: err.message });
-                      } else {
-                          res.json({ message: 'Purchase record saved successfully.' });
-                      }
+              } else { // This is a new record, so INSERT it.
+                  const newPurchaseId = uuidv4();
+                  const insertQuery = `
+                      INSERT INTO Purchase_Records (
+                          purchase_id, vendor_id, item_id, purchase_date, unit, quantity,
+                          unit_price, vat_amount, fs_number, total_amount, vat_percentage, mrc_number, status
+                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                  db.run(insertQuery, [
+                      newPurchaseId, vendorId, itemId, record.purchaseDate, record.unit, record.quantity,
+                      record.unitPrice, record.vat_amount, record.fsNumber, record.total_amount,
+                      record.vatPercentage, record.mrcNo, record.status
+                  ], function(err) {
+                      if (err) return reject(err);
+                      console.log(`Inserted new record ${newPurchaseId}`);
+                      // Log the insert activity
+                      const log_id = uuidv4();
+                      db.run(`INSERT INTO Activity_Logs (log_id, action_type, table_name, record_id, new_data) VALUES (?, 'INSERT', 'Purchase_Records', ?, ?)`, [log_id, newPurchaseId, JSON.stringify(record)]);
+                      resolve({ id: newPurchaseId, status: 'inserted' });
                   });
               }
           });
+      };
+
+      // Execute all record processing promises within a transaction
+      db.serialize(() => {
+          db.run('BEGIN TRANSACTION');
+          Promise.all(records.map(processRecord))
+              .then(results => {
+                  db.run('COMMIT', (err) => {
+                      if (err) {
+                          console.error('Commit failed:', err);
+                          res.status(500).json({ message: 'Transaction commit failed.', error: err.message });
+                      } else {
+                          res.status(200).json({ message: 'Records saved successfully!', results });
+                      }
+                  });
+              })
+              .catch(error => {
+                  db.run('ROLLBACK', (err) => {
+                      if (err) console.error('Rollback failed:', err);
+                      console.error('Error in /save-purchase-records, transaction rolled back:', error);
+                      res.status(500).json({ message: 'An error occurred while saving, transaction rolled back.', error: error.message });
+                  });
+              });
       });
   });
+  // *** END: UPDATED AND FIXED ENDPOINT ***
 
   // New endpoint to fetch the last 10 purchase records
-  app.get('/last-10-purchase-records', (req, res) => {
+  app.get('/saved-purchase-records', (req, res) => {
       const sql = `
           SELECT
-              pr.purchase_id, pr.purchase_date, pr.unit, pr.quantity, pr.unit_price,
+              pr.purchase_id, pr.purchase_date, pr.posted_date, pr.unit, pr.quantity, pr.unit_price,
               pr.vat_amount, pr.fs_number, pr.total_amount, pr.vat_percentage, pr.mrc_number,
-              v.vendor_name, v.tin_number, i.item_name
+              v.vendor_id, v.vendor_name, v.tin_number, 
+              i.item_id, i.item_name
           FROM Purchase_Records pr
           JOIN Vendors v ON pr.vendor_id = v.vendor_id
           JOIN Items i ON pr.item_id = i.item_id
-          ORDER BY pr.purchase_id DESC LIMIT 10;
+          WHERE pr.status = 'saved'
+          ORDER BY pr.purchase_date DESC
       `;
       db.all(sql, [], (err, rows) => {
           if (err) {
@@ -1133,6 +1200,37 @@ app.get('/vendors', (req, res) => {
           }
       });
   });
+
+  // *** NEW ENDPOINT START ***
+  // Endpoint to fetch posted purchase records by a specific posted_date
+  app.get('/posted-purchase-records', (req, res) => {
+      const { date } = req.query;
+      if (!date) {
+          return res.status(400).json({ error: 'A date parameter is required.' });
+      }
+
+      const sql = `
+          SELECT
+              pr.purchase_id, pr.purchase_date, pr.posted_date, pr.unit, pr.quantity, pr.unit_price,
+              pr.vat_amount, pr.fs_number, pr.total_amount, pr.vat_percentage, pr.mrc_number,
+              v.vendor_id, v.vendor_name, v.tin_number,
+              i.item_id, i.item_name
+          FROM Purchase_Records pr
+          JOIN Vendors v ON pr.vendor_id = v.vendor_id
+          JOIN Items i ON pr.item_id = i.item_id
+          WHERE pr.posted_date = ?
+          ORDER BY pr.purchase_date DESC
+      `;
+
+      db.all(sql, [date], (err, rows) => {
+          if (err) {
+              res.status(500).json({ error: err.message });
+          } else {
+              res.json(rows);
+          }
+      });
+  });
+  // *** NEW ENDPOINT END ***
 
   // Endpoint for syncing logs with Telegram bot
   app.post('/sync-logs', async (req, res) => {
@@ -1327,26 +1425,32 @@ app.get('/vendors', (req, res) => {
           });
       });
   });
+  
   app.get('/reports/jv',(req,res) =>{
     const {singledate} = req.query
     if(!singledate){
         return res.status(400).json({error: "selected a date please"})
     }
-    const sql = `SELECT 
-                    i.item_name,
-                    p.total_amount
-                FROM Purchase_Records p
-                JOIN Items i ON p.item_id = i.item_id
-                WHERE DATE(p.purchase_date) = ?;
-`;
-        db.all(sql, [singledate], (err, rows) => {
-            if (err) {
-                console.error('Error fetching VAT report:', err.message);
-                res.status(500).json({ error: 'Failed to fetch VAT report.' });
-            } else {
-                res.json(rows);
-            }
-});         
+    const sql = `
+        SELECT 
+            i.item_name,
+            SUM(p.total_amount - COALESCE(p.vat_amount, 0)) AS base_total,
+            SUM(COALESCE(p.vat_amount, 0)) AS total_vat,
+            SUM(p.total_amount) AS grand_total
+        FROM Purchase_Records p
+        JOIN Items i ON p.item_id = i.item_id
+        WHERE DATE(p.purchase_date) = ?
+        GROUP BY i.item_name
+        ORDER BY i.item_name;
+    `;
+    db.all(sql, [singledate], (err, rows) => {
+        if (err) {
+            console.error('Error fetching JV report:', err.message);
+            res.status(500).json({ error: 'Failed to fetch JV report.' });
+        } else {
+            res.json(rows);
+        }
+    });         
 })
   // New endpoint for VAT Report
   app.get('/reports/vat', (req, res) => {
@@ -1357,8 +1461,7 @@ app.get('/vendors', (req, res) => {
       }
 
       const finalEndDate = endDate;
-
-      const sql = `
+       const sql = `
           SELECT
               pr.purchase_id, pr.purchase_date, pr.quantity, pr.unit_price, pr.vat_amount,
               pr.fs_number, pr.total_amount, pr.vat_percentage, pr.mrc_number,
@@ -1366,9 +1469,10 @@ app.get('/vendors', (req, res) => {
           FROM Purchase_Records pr
           JOIN Vendors v ON pr.vendor_id = v.vendor_id
           JOIN Items i ON pr.item_id = i.item_id
-          WHERE DATE(pr.purchase_date) BETWEEN ? AND ?
+          WHERE DATE(pr.purchase_date) BETWEEN ? AND ? AND pr.vat_amount > 0
           ORDER BY v.vendor_name, pr.purchase_date;
       `;
+
 
       db.all(sql, [startDate, finalEndDate], (err, rows) => {
           if (err) {
@@ -1379,6 +1483,38 @@ app.get('/vendors', (req, res) => {
           }
       });
   });
+
+  // *** MODIFICATION START ***
+  app.post('/change-from-saved-to-posted', (req, res) => {
+    let { purchase_ids } = req.body;
+
+    if (!Array.isArray(purchase_ids)) {
+      if (typeof purchase_ids === 'string' || typeof purchase_ids === 'number') {
+        purchase_ids = [purchase_ids];
+      } else {
+        return res.status(400).json({ error: 'purchase_ids must be an array or a single id.' });
+      }
+    }
+
+    if (!purchase_ids.length) {
+      return res.status(400).json({ error: 'No purchase_ids provided.' });
+    }
+
+    // Updated query to set posted_date to the current date
+    const placeholders = purchase_ids.map(() => '?').join(',');
+    const sql = `UPDATE Purchase_Records SET status = 'posted', posted_date = CURRENT_DATE WHERE purchase_id IN (${placeholders})`;
+
+    db.run(sql, purchase_ids, function (err) {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      res.json({ 
+        message: `Changed ${this.changes} purchase record(s) to posted.`,
+        updatedCount: this.changes
+      });
+    });
+  });
+  // *** MODIFICATION END ***
 
   app.get('/reports/summary', (req, res) => {
     const { startDate, endDate } = req.query;
@@ -1391,7 +1527,8 @@ app.get('/vendors', (req, res) => {
         SELECT
             pr.purchase_date,
             i.item_name,
-            SUM(pr.total_amount) AS total_amount
+            SUM(pr.total_amount - COALESCE(pr.vat_amount, 0)) AS base_total,
+            SUM(COALESCE(pr.vat_amount, 0)) AS total_vat
         FROM Purchase_Records pr
         JOIN Items i ON pr.item_id = i.item_id
         WHERE DATE(pr.purchase_date) BETWEEN ? AND ?

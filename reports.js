@@ -16,8 +16,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // --- VAT REPORT ELEMENTS ---
     const vatReportSection = document.getElementById('vat-report-section');
-    const startDateInput = document.getElementById('start-date');
-    const endDateInput = document.getElementById('end-date');
+    const ethiopianMonthSelect = document.getElementById('ethiopian-month-select');
+    const ethiopianYearInput = document.getElementById('ethiopian-year-input');
     const generateVatReportBtn = document.getElementById('generate-vat-report-btn');
     const vatReportTableBody = document.querySelector('#vat-report-table tbody');
     const summaryVatAmount = document.getElementById('summary-vat-amount');
@@ -34,8 +34,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- SUMMARY REPORT ELEMENTS ---
     const summaryReportSection = document.getElementById('summary-report-section');
-    const summaryStartDateInput = document.getElementById('summary-start-date');
-    const summaryEndDateInput = document.getElementById('summary-end-date');
+    const summaryEthiopianMonthSelect = document.getElementById('summary-ethiopian-month-select');
+    const summaryEthiopianYearInput = document.getElementById('summary-ethiopian-year-input');
     const generateSummaryReportBtn = document.getElementById('generate-summary-report-btn');
     const summaryReportTableHead = document.querySelector('#summary-report-table thead tr');
     const summaryReportTableBody = document.querySelector('#summary-report-table tbody');
@@ -93,6 +93,69 @@ document.addEventListener('DOMContentLoaded', () => {
     let allUniqueItems = [];
     let currentReportData = [];
 
+    // --- ETHIOPIAN CALENDAR CONVERSION UTILITY ---
+    const calendarUtil = {
+        toEthiopian: (gregorianDate) => {
+            const date = gregorianDate instanceof Date ? gregorianDate : new Date();
+            const gregYear = date.getFullYear();
+            const gregMonth = date.getMonth() + 1;
+            const gregDay = date.getDate();
+
+            let ethYear = gregYear - 8;
+            const isGregLeap = (gregYear % 4 === 0 && gregYear % 100 !== 0) || (gregYear % 400 === 0);
+
+            // Ethiopian new year starts on Sep 11 (or 12 on a leap year)
+            const ethNewYearDay = isGregLeap ? 12 : 11;
+            
+            if (gregMonth > 9 || (gregMonth === 9 && gregDay >= ethNewYearDay)) {
+                ethYear += 1;
+            }
+
+            // Calculate day number in Gregorian year
+            const dayOfYear = Math.floor((date - new Date(gregYear, 0, 0)) / (1000 * 60 * 60 * 24));
+            
+            let ethDay, ethMonth;
+            if (date >= new Date(gregYear, 8, ethNewYearDay)) {
+                const daysSinceNewYear = dayOfYear - (isGregLeap ? 254 : 253);
+                ethMonth = Math.ceil(daysSinceNewYear / 30);
+                ethDay = daysSinceNewYear % 30 || 30;
+            } else {
+                const daysSinceNewYear = dayOfYear + (isGregLeap ? 112 : 113);
+                ethMonth = Math.ceil(daysSinceNewYear / 30);
+                ethDay = daysSinceNewYear % 30 || 30;
+            }
+            return { etYear: ethYear, etMonth, etDay };
+        },
+
+        getGregorianRangeForEthiopianMonth: (etYear, etMonth) => {
+            const isEthLeap = (etYear + 1) % 4 === 0;
+            const gregYear = etYear + 7;
+            
+            // Start of Ethiopian Year in Gregorian Calendar
+            const newYearDay = new Date(gregYear, 8, 11); // September is month 8
+            if ((gregYear + 1) % 4 === 0) newYearDay.setDate(12);
+
+            const startOffset = (etMonth - 1) * 30;
+            const startDate = new Date(newYearDay.getTime());
+            startDate.setDate(newYearDay.getDate() + startOffset);
+            
+            let daysInMonth = 30;
+            if (etMonth === 13) {
+                daysInMonth = isEthLeap ? 6 : 5;
+            }
+            
+            const endDate = new Date(startDate.getTime());
+            endDate.setDate(startDate.getDate() + daysInMonth - 1);
+
+            const formatDate = (d) => d.toISOString().split('T')[0];
+            
+            return {
+                startDate: formatDate(startDate),
+                endDate: formatDate(endDate)
+            };
+        }
+    };
+
     // --- REFACTORED NAVIGATION LOGIC ---
     function switchView(targetSectionId) {
         // Hide default message and all sections
@@ -119,9 +182,19 @@ document.addEventListener('DOMContentLoaded', () => {
             // Default to vendor tab
             document.querySelector('.tab-button[data-tab="vendor-tab"]').click();
         } else if (targetSectionId === 'vat-report-section') {
-            setDefaultDatesAndFetch(startDateInput, endDateInput, fetchVatReport);
+            // Set default to current Ethiopian month and year, then fetch
+            const { etYear, etMonth } = calendarUtil.toEthiopian(new Date());
+            ethiopianYearInput.value = etYear;
+            ethiopianMonthSelect.value = etMonth;
+            const { startDate, endDate } = calendarUtil.getGregorianRangeForEthiopianMonth(etYear, etMonth);
+            fetchVatReport(startDate, endDate);
         } else if (targetSectionId === 'summary-report-section') {
-            setDefaultDatesAndFetch(summaryStartDateInput, summaryEndDateInput, fetchSummaryReport, 30);
+            // Set default to current Ethiopian month and year, then fetch
+            const { etYear, etMonth } = calendarUtil.toEthiopian(new Date());
+            summaryEthiopianYearInput.value = etYear;
+            summaryEthiopianMonthSelect.value = etMonth;
+            const { startDate, endDate } = calendarUtil.getGregorianRangeForEthiopianMonth(etYear, etMonth);
+            fetchSummaryReport(startDate, endDate);
         }
     }
 
@@ -130,24 +203,13 @@ document.addEventListener('DOMContentLoaded', () => {
             switchView(button.dataset.section);
         });
     });
-
-    function setDefaultDatesAndFetch(startInput, endInput, fetchFn, daysAgo = 7) {
-        const today = new Date();
-        const pastDate = new Date(today);
-        pastDate.setDate(today.getDate() - daysAgo);
-        
-        endInput.value = today.toISOString().split('T')[0];
-        startInput.value = pastDate.toISOString().split('T')[0];
-
-        fetchFn(startInput.value, endInput.value);
-    }
     
     // --- REFACTORED MODAL HANDLING ---
     function openModal(modalElement, mode = 'add', data = {}) {
         modalElement.style.display = 'flex'; // Use flex for new modal centering
         modalElement.setAttribute('data-mode', mode);
 
-        if (modalElement === addVendorModal) {
+        if (modalElement === vendorModal) {
             vendorForm.reset();
              // Clear dynamic MRCs
             mrcContainer.innerHTML = '<div class="mrc-input-group"><input type="text" name="mrcNumbers[]" class="input"/></div>';
@@ -186,10 +248,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showNotification(message) {
         notificationMessage.textContent = message;
-        customNotificationModal.style.display = 'block';
+        customNotificationModal.style.display = 'flex';
     }
     
-    // --- VAT REPORT LOGIC (Largely Unchanged) ---
+    // --- VAT REPORT LOGIC ---
     const fetchVatReport = async (startDate, endDate) => {
         try {
             const response = await fetch(`http://localhost:3000/reports/vat?startDate=${startDate}&endDate=${endDate}`);
@@ -213,24 +275,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         let totalVat = 0, totalBase = 0, totalAmount = 0;
         data.forEach(record => {
-            const baseTotal = record.base_total || (record.total_amount - record.vat_amount);
+            const baseTotal = (record.total_amount || 0) - (record.vat_amount || 0);
             const row = vatReportTableBody.insertRow();
             row.innerHTML = `
                 <td>${record.vendor_name}</td>
                 <td>${record.tin_number}</td>
-                <td>${record.mrc_number}</td>
-                <td>${record.purchase_date}</td>
+                <td>${record.mrc_number || 'N/A'}</td>
+                <td>${new Date(record.purchase_date).toLocaleDateString()}</td>
                 <td>${record.item_name}</td>
                 <td class="is-numeric">${record.quantity}</td>
-                <td class="is-numeric">${record.unit_price.toFixed(2)}</td>
-                <td class="is-numeric">${record.vat_percentage}%</td>
-                <td class="is-numeric">${record.vat_amount.toFixed(2)}</td>
+                <td class="is-numeric">${(record.unit_price || 0).toFixed(2)}</td>
+                <td class="is-numeric">${record.vat_percentage || 0}%</td>
+                <td class="is-numeric">${(record.vat_amount || 0).toFixed(2)}</td>
                 <td class="is-numeric">${baseTotal.toFixed(2)}</td>
-                <td class="is-numeric">${record.total_amount.toFixed(2)}</td>
+                <td class="is-numeric">${(record.total_amount || 0).toFixed(2)}</td>
             `;
-            totalVat += record.vat_amount;
+            totalVat += record.vat_amount || 0;
             totalBase += baseTotal;
-            totalAmount += record.total_amount;
+            totalAmount += record.total_amount || 0;
         });
 
         summaryVatAmount.textContent = totalVat.toFixed(2);
@@ -239,22 +301,32 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     generateVatReportBtn?.addEventListener('click', () => {
-        if (!startDateInput.value || !endDateInput.value) {
-            showNotification('Please select both start and end dates.');
+        const etYear = parseInt(ethiopianYearInput.value, 10);
+        const etMonth = parseInt(ethiopianMonthSelect.value, 10);
+
+        if (!etYear || isNaN(etYear)) {
+            showNotification('Please enter a valid Ethiopian year.');
             return;
         }
-        fetchVatReport(startDateInput.value, endDateInput.value);
+        
+        const { startDate, endDate } = calendarUtil.getGregorianRangeForEthiopianMonth(etYear, etMonth);
+        fetchVatReport(startDate, endDate);
     });
 
     exportVatReportBtn?.addEventListener('click', () => {
-        if (!startDateInput.value || !endDateInput.value) {
-            showNotification('Please select dates to export.');
+        const etYear = parseInt(ethiopianYearInput.value, 10);
+        const etMonth = parseInt(ethiopianMonthSelect.value, 10);
+
+        if (!etYear || isNaN(etYear)) {
+            showNotification('Please select a valid month and year to export.');
             return;
         }
-        window.location.href = `http://localhost:3000/export/vat-report?startDate=${startDateInput.value}&endDate=${endDateInput.value}`;
+
+        const { startDate, endDate } = calendarUtil.getGregorianRangeForEthiopianMonth(etYear, etMonth);
+        window.location.href = `http://localhost:3000/export/vat-report?startDate=${startDate}&endDate=${endDate}`;
     });
 
-    // --- JV REPORT LOGIC (Adapted for new table body/foot) ---
+    // --- JV REPORT LOGIC ---
     const fetchjvreport = async (singledate) => {
         try {    
             const response = await fetch(`http://localhost:3000/reports/jv?singledate=${singledate}`)
@@ -271,39 +343,39 @@ document.addEventListener('DOMContentLoaded', () => {
         jvReportTableFoot.innerHTML = "";
 
         if (data.length === 0) {
-            jvReportTableBody.innerHTML = '<tr><td colspan="5" class="placeholder-cell">No data for the selected date.</td></tr>';
+            jvReportTableBody.innerHTML = '<tr><td colspan="3" class="placeholder-cell">No data for the selected date.</td></tr>';
             return;
         }
 
-        let totalCreditBirr = 0, totalCreditCent = 0;
+        let totalVatSum = 0;
+        let cashTotalSum = 0;
+
         data.forEach(record => {
-            const total = record.total_amount ?? 0;
-            const credit_birr = Math.floor(total);
-            const credit_cent = Math.round((total - credit_birr) * 100);
+            const baseTotal = record.base_total || 0;
+            const totalVat = record.total_vat || 0;
+            const grandTotal = record.grand_total || 0;
             
             jvReportTableBody.innerHTML += `
                 <tr>
                     <td>${record.item_name}</td>
-                    <td class="is-numeric">0</td>
-                    <td class="is-numeric">0</td>
-                    <td class="is-numeric">${credit_birr}</td>
-                    <td class="is-numeric">${credit_cent}</td>
+                    <td class="is-numeric">${Math.round(baseTotal)}</td>
+                    <td class="is-numeric"></td>
                 </tr>
             `;
-            totalCreditBirr += credit_birr;
-            totalCreditCent += credit_cent;
+            totalVatSum += totalVat;
+            cashTotalSum += grandTotal;
         });
-        
-        totalCreditBirr += Math.floor(totalCreditCent / 100);
-        totalCreditCent %= 100;
         
         jvReportTableFoot.innerHTML = `
             <tr>
-                <td><strong>Summary</strong></td>
-                <td class="is-numeric"><strong>0</strong></td>
-                <td class="is-numeric"><strong>0</strong></td>
-                <td class="is-numeric"><strong>${totalCreditBirr}</strong></td>
-                <td class="is-numeric"><strong>${totalCreditCent}</strong></td>
+                <td><strong>Total VAT</strong></td>
+                <td class="is-numeric"><strong>${Math.round(totalVatSum)}</strong></td>
+                <td class="is-numeric"></td>
+            </tr>
+            <tr>
+                <td><strong>Cash</strong></td>
+                <td class="is-numeric"></td>
+                <td class="is-numeric"><strong>${Math.round(cashTotalSum)}</strong></td>
             </tr>
         `;
     }
@@ -316,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchjvreport(singleDateInput.value);
     });
     
-    // --- SUMMARY REPORT LOGIC (Largely Unchanged) ---
+    // --- SUMMARY REPORT LOGIC ---
      async function fetchSummaryReport(startDate, endDate) {
         try {
             const response = await fetch(`http://localhost:3000/reports/summary?startDate=${startDate}&endDate=${endDate}`);
@@ -339,7 +411,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         currentReportData = reportData;
-        allUniqueItems = [...new Set(reportData.map(record => record.item_name))];
+        allUniqueItems = [...new Set(reportData.map(record => record.item_name))].sort();
         currentPage = 0;
         renderSummaryPage(currentPage);
         summaryPaginationControls.style.display = 'flex';
@@ -350,25 +422,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const endIndex = Math.min(startIndex + itemsPerPage, allUniqueItems.length);
         const itemsToDisplay = allUniqueItems.slice(startIndex, endIndex);
 
+        // Build header
         summaryReportTableHead.innerHTML = '<th>Date</th>';
         itemsToDisplay.forEach(item => summaryReportTableHead.innerHTML += `<th>${item}</th>`);
+        summaryReportTableHead.innerHTML += `<th class="is-numeric">Total VAT</th>`;
 
+        // Group data by date
         summaryReportTableBody.innerHTML = '';
         const groupedByDate = currentReportData.reduce((acc, record) => {
-            acc[record.purchase_date] = acc[record.purchase_date] || {};
-            acc[record.purchase_date][record.item_name] = (acc[record.purchase_date][record.item_name] || 0) + record.total_amount;
+            const date = record.purchase_date;
+            if (!acc[date]) {
+                acc[date] = { items: {}, dailyTotalVat: 0 };
+            }
+            acc[date].items[record.item_name] = (acc[date].items[record.item_name] || 0) + record.base_total;
+            acc[date].dailyTotalVat += record.total_vat;
             return acc;
         }, {});
 
+        // Build rows
         Object.keys(groupedByDate).sort().forEach(date => {
-            let rowHtml = `<td>${date}</td>`;
+            const dateData = groupedByDate[date];
+            let rowHtml = `<td>${new Date(date).toLocaleDateString()}</td>`;
+            
             itemsToDisplay.forEach(item => {
-                const totalAmount = groupedByDate[date][item] || 0;
-                rowHtml += `<td class="is-numeric">${totalAmount.toFixed(2)}</td>`;
+                const baseTotal = dateData.items[item] || 0;
+                rowHtml += `<td class="is-numeric">${baseTotal.toFixed(2)}</td>`;
             });
+
+            rowHtml += `<td class="is-numeric">${dateData.dailyTotalVat.toFixed(2)}</td>`;
             summaryReportTableBody.innerHTML += `<tr>${rowHtml}</tr>`;
         });
 
+        // Update pagination controls
         const totalPages = Math.ceil(allUniqueItems.length / itemsPerPage);
         summaryPageInfo.textContent = `Page ${page + 1} of ${totalPages}`;
         prevSummaryPageBtn.disabled = page === 0;
@@ -376,11 +461,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     generateSummaryReportBtn?.addEventListener('click', () => {
-        if (!summaryStartDateInput.value || !summaryEndDateInput.value) {
-            showNotification('Please select both start and end dates.');
+        const etYear = parseInt(summaryEthiopianYearInput.value, 10);
+        const etMonth = parseInt(summaryEthiopianMonthSelect.value, 10);
+
+        if (!etYear || isNaN(etYear)) {
+            showNotification('Please enter a valid Ethiopian year.');
             return;
         }
-        fetchSummaryReport(summaryStartDateInput.value, summaryEndDateInput.value);
+        
+        const { startDate, endDate } = calendarUtil.getGregorianRangeForEthiopianMonth(etYear, etMonth);
+        fetchSummaryReport(startDate, endDate);
     });
 
     prevSummaryPageBtn?.addEventListener('click', () => { if (currentPage > 0) renderSummaryPage(--currentPage); });
@@ -553,7 +643,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td>${item.item_name}</td>
                         <td>${item.category_name}</td>
                         <td>${item.subcategory_name || ''}</td>
-                        <td class="is-numeric">${item.unit_price.toFixed(2)}</td>
+                        <td class="is-numeric">${(item.unit_price || 0).toFixed(2)}</td>
                         <td>${item.description || ''}</td>
                         <td class="action-cell">
                            <button class="btn btn-ghost" data-action="delete-item" data-id="${item.item_id}">Delete</button>

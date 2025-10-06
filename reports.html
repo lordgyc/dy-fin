@@ -38,8 +38,22 @@
             <div class="page-header">
                 <h1>VAT Report</h1>
                 <div class="controls">
-                    <input type="date" id="start-date" class="input" title="Start Date">
-                    <input type="date" id="end-date" class="input" title="End Date">
+                    <select id="ethiopian-month-select" class="input" title="Ethiopian Month">
+                        <option value="1">Meskerem</option>
+                        <option value="2">Tekemt</option>
+                        <option value="3">Hidar</option>
+                        <option value="4">Tahsas</option>
+                        <option value="5">Tir</option>
+                        <option value="6">Yekatit</option>
+                        <option value="7">Megabit</option>
+                        <option value="8">Miyazya</option>
+                        <option value="9">Ginbot</option>
+                        <option value="10">Sene</option>
+                        <option value="11">Hamle</option>
+                        <option value="12">Nehase</option>
+                        <option value="13">Paguemen</option>
+                    </select>
+                    <input type="number" id="ethiopian-year-input" class="input" title="Ethiopian Year" placeholder="Enter Year (E.C.)">
                     <button id="generate-vat-report-btn" class="btn">Generate</button>
                     <button id="export-vat-report-btn" class="btn btn-primary">Export to Excel</button>
                 </div>
@@ -61,13 +75,12 @@
                     <table class="table" id="jv-report-table">
                         <thead>
                             <tr>
-                                <th rowspan="2">Items</th><th colspan="2">Debt</th><th colspan="2">Credits</th>
-                            </tr>
-                            <tr>
-                                <th class="is-numeric">Birr</th><th class="is-numeric">Cent</th><th class="is-numeric">Birr</th><th class="is-numeric">Cent</th>
+                                <th>Items</th>
+                                <th class="is-numeric">Debt</th>
+                                <th class="is-numeric">Credit</th>
                             </tr>
                         </thead>
-                        <tbody><tr><td colspan="5" class="placeholder-cell">Generate a report to see data.</td></tr></tbody>
+                        <tbody><tr><td colspan="3" class="placeholder-cell">Generate a report to see data.</td></tr></tbody>
                         <tfoot></tfoot>
                     </table>
                 </div>
@@ -75,12 +88,26 @@
         </section>
 
         <!-- Summary Report Section -->
-        <section id="summary-report-section" class="page-section" style="display: none;">
+             <section id="summary-report-section" class="page-section" style="display: none;">
             <div class="page-header">
                 <h1>Summary Report</h1>
                 <div class="controls">
-                    <input type="date" id="summary-start-date" class="input" title="Start Date">
-                    <input type="date" id="summary-end-date" class="input" title="End Date">
+                    <select id="summary-ethiopian-month-select" class="input" title="Ethiopian Month">
+                        <option value="1">Meskerem</option>
+                        <option value="2">Tekemt</option>
+                        <option value="3">Hidar</option>
+                        <option value="4">Tahsas</option>
+                        <option value="5">Tir</option>
+                        <option value="6">Yekatit</option>
+                        <option value="7">Megabit</option>
+                        <option value="8">Miyazya</option>
+                        <option value="9">Ginbot</option>
+                        <option value="10">Sene</option>
+                        <option value="11">Hamle</option>
+                        <option value="12">Nehase</option>
+                        <option value="13">Paguemen</option>
+                    </select>
+                    <input type="number" id="summary-ethiopian-year-input" class="input" title="Ethiopian Year" placeholder="Enter Year (E.C.)">
                     <button id="generate-summary-report-btn" class="btn btn-primary">Generate</button>
                 </div>
             </div>

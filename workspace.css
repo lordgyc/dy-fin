@@ -14,7 +14,7 @@
   --success-light: #dcfce7;
   --warning: #f59e0b;
   --warning-light: #fef3c7;
-  --header-height: 64px;
+  --header-height: 60px;
 }
 
 /* 1. Base & Layout */
@@ -25,13 +25,13 @@ body {
   font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
   color: var(--text);
   background: var(--bg);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .container {
-  max-width: 1600px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 0 2rem;
+  padding: 0 1rem;
 }
 
 /* 2. Header */
@@ -50,18 +50,19 @@ body {
   height: var(--header-height);
 }
 .logo { display: flex; align-items: center; }
-.logo img { height: 32px; }
+.logo img { height: 28px; }
 .nav { display: flex; gap: 0.5rem; }
 
 /* 3. Page Header */
 .page-header {
   display: flex;
-  align-items: flex-start; /* Changed for better alignment with subtitle */
+  align-items: center;
   justify-content: space-between;
-  margin: 2rem 0 1.5rem 0;
+  margin: 1rem 0;
   gap: 1rem;
 }
-.page-title { margin: 0; font-size: 2rem; line-height: 1.2; }
+.page-title { margin: 0; font-size: 1.5rem; line-height: 1.2; }
+.page-header p { margin: 0; }
 .controls { display: flex; gap: 0.75rem; flex-shrink: 0; }
 
 /* 4. Buttons */
@@ -70,14 +71,14 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  border-radius: 8px;
+  border-radius: 6px;
   border: 1px solid var(--border);
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 0.8rem;
   background: white;
   color: var(--text);
   text-decoration: none;
   font-weight: 600;
-  font-size: 14px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 150ms ease-in-out;
 }
@@ -91,7 +92,7 @@ body {
 .btn-ghost:hover { background-color: var(--bg-soft); }
 
 .btn-icon {
-  padding: 0.5rem;
+  padding: 0.4rem;
   border: none;
   background: transparent;
   color: var(--text-muted);
@@ -104,17 +105,17 @@ body {
 .card {
   border: 1px solid var(--border);
   background: white;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 10px rgba(15, 23, 42, .05);
 }
-.card-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); font-size: 1.1rem; }
+.card-header { display: none; }
 .card-body { padding: 0; }
 
 /* 6. Table Styles */
 .table-wrapper {
   overflow-x: auto;
-  max-height: calc(100vh - 250px);
+  max-height: calc(100vh - 170px);
 }
 .table {
   width: 100%;
@@ -122,11 +123,11 @@ body {
   border-spacing: 0;
 }
 .table th, .table td {
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   vertical-align: middle;
-  position: relative; /* For autocomplete positioning */
+  position: relative;
 }
 .table thead th {
   position: sticky;
@@ -134,17 +135,29 @@ body {
   background: #f9fafb;
   text-align: left;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 11px;
   text-transform: uppercase;
   color: var(--text-muted);
   z-index: 10;
 }
-.table tbody tr:hover td { background-color: var(--primary-light); }
+/* Zebra striping for all rows */
+.table tbody tr:nth-child(even) td {
+    background-color: #f9fafb;
+}
+
+.table tbody tr:hover td {
+    background-color: var(--primary-light);
+}
 .table .sticky-col {
   position: sticky;
   left: 0;
   z-index: 20;
-  background-color: white; /* Ensure it covers content when scrolling */
+  background-color: white;
+}
+
+/* Zebra striping for sticky column */
+.table tbody tr:nth-child(even) .sticky-col {
+    background-color: #f9fafb;
 }
 .table tbody tr:hover .sticky-col { background-color: var(--primary-light); }
 thead .sticky-col { background-color: #f9fafb; z-index: 30; }
@@ -155,31 +168,73 @@ tfoot .sticky-col { background-color: var(--bg-soft); z-index: 30; }
   background: var(--bg-soft);
   border-top: 2px solid var(--border);
   font-weight: 600;
-  font-size: 1rem;
+  font-size: 0.9rem;
+  padding: 0.5rem 0.75rem;
   z-index: 10;
 }
 .is-numeric { text-align: right; }
 .is-center { text-align: center; }
 
-/* Column-specific widths */
-.table th:nth-child(2), .table td:nth-child(2) { min-width: 200px; } /* Vendor */
-.table th:nth-child(5), .table td:nth-child(5) { min-width: 220px; } /* Item */
+/* 6.5. Sub-Row Specific Styles */
+.table tbody tr.sub-row td {
+    padding-top: 0.2rem;
+    padding-bottom: 0.2rem;
+    border-left: none;
+}
+
+.table tbody tr.sub-row:hover td {
+    background-color: var(--primary-light);
+}
+
+.sub-row td:nth-child(7) {
+    padding-left: 2rem;
+    position: relative;
+}
+
+.sub-row td:nth-child(7)::before {
+    content: '↳';
+    position: absolute;
+    left: 0.75rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.sub-row .input {
+    font-size: 13px;
+    background-color: transparent;
+}
+
+/* Column-specific widths and responsiveness */
+.table th:nth-child(1), .table td:nth-child(1) { min-width: 90px; }
 .table th:nth-child(3), .table td:nth-child(3),
 .table th:nth-child(4), .table td:nth-child(4),
-.table th:nth-child(14), .table td:nth-child(14) { min-width: 150px; }
+.table th:nth-child(6), .table td:nth-child(6) { min-width: 130px; }
+.table th:nth-child(5), .table td:nth-child(5) { min-width: 180px; }
+.table th:nth-child(11), .table td:nth-child(11) { min-width: 100px; }
+.table th:nth-child(12), .table td:nth-child(12) { min-width: 70px; }
+
+.table th:nth-child(2), .table td:nth-child(2),
 .table th:nth-child(7), .table td:nth-child(7),
-.table th:nth-child(8), .table td:nth-child(8),
-.table th:nth-child(10), .table td:nth-child(10) { min-width: 110px; }
-.table th:nth-child(1), .table td:nth-child(1) { min-width: 100px; } /* Action */
+.table th:nth-child(8), .table td:nth-child(8) {
+    white-space: normal;
+}
+
+.table th:nth-child(2), .table td:nth-child(2) { min-width: 160px; }
+.table th:nth-child(7), .table td:nth-child(7) { min-width: 220px; }
+.table th:nth-child(8), .table td:nth-child(8) { min-width: 150px; }
+
 
 /* 7. Form Elements within Table */
 .input, .table select {
   width: 100%;
   border: 1px solid transparent;
-  border-radius: 6px;
-  padding: 0.5rem 0.6rem;
+  border-radius: 4px;
+  padding: 0.4rem 0.5rem;
   background-color: transparent;
-  font-size: 14px;
+  font-size: 13px;
   font-family: inherit;
   transition: all 150ms ease-in-out;
   appearance: none;
@@ -196,23 +251,25 @@ tfoot .sticky-col { background-color: var(--bg-soft); z-index: 30; }
 
 .checkbox {
   display: block;
-  margin: 0 auto; /* Center the checkbox */
-  width: 1.25rem;
-  height: 1.25rem;
+  margin: 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
   accent-color: var(--primary);
   cursor: pointer;
 }
 .disabled-input {
   color: var(--text-muted);
-  pointer-events: none; /* Make it unclickable */
+  pointer-events: none;
   background-color: transparent !important;
 }
+
+/* Style for invalid date input */
 .date-invalid {
   border-color: var(--danger) !important;
   box-shadow: 0 0 0 3px var(--danger-light) !important;
 }
 
-/* 8. Autocomplete Dropdown (NEW) */
+/* 8. Autocomplete Dropdown */
 .autocomplete-dropdown {
   position: absolute;
   top: 100%;
@@ -220,23 +277,23 @@ tfoot .sticky-col { background-color: var(--bg-soft); z-index: 30; }
   right: 0;
   background-color: white;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 6px;
   box-shadow: 0 8px 16px rgba(15, 23, 42, .1);
   max-height: 200px;
   overflow-y: auto;
   z-index: 100;
-  display: none; /* Hidden by default */
+  display: none;
 }
 .autocomplete-item {
-  padding: 0.75rem 1rem;
+  padding: 0.6rem 0.8rem;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
 }
 .autocomplete-item:hover {
   background-color: var(--primary-light);
 }
 
-/* 9. Notification Modal (NEW) */
+/* 9. Notification Modal */
 .notification-modal {
   display: none;
   position: fixed;
@@ -283,3 +340,21 @@ tfoot .sticky-col { background-color: var(--bg-soft); z-index: 30; }
 .notification-success .modal-content { border-top: 4px solid var(--success); }
 .notification-error .modal-content { border-top: 4px solid var(--danger); }
 .notification-warning .modal-content { border-top: 4px solid var(--warning); }
+
+/* 10. Custom Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #c4b5fd;
+  border-radius: 10px;
+  border: 2px solid #f1f5f9;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: #a78bfa;
+}
