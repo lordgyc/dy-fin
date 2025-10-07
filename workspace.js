@@ -170,7 +170,53 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const createNewRowHTML = () => populateRowWithData({}, true);
+    const showConfirmationModal = (message) => {
+    return new Promise(resolve => {
+        // Create modal elements
+        const modalOverlay = document.createElement('div');
+        modalOverlay.id = 'confirmation-modal-overlay';
 
+        const modalContent = document.createElement('div');
+        modalContent.id = 'confirmation-modal-content';
+        
+        modalContent.innerHTML = `
+            <p id="confirmation-modal-message">${message}</p>
+            <div id="confirmation-modal-buttons">
+                <button id="cancel-btn">Cancel</button>
+                <button id="confirm-btn">Delete</button>
+            </div>
+        `;
+
+        modalOverlay.appendChild(modalContent);
+        document.body.appendChild(modalOverlay);
+
+        const confirmBtn = document.getElementById('confirm-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+
+        // Handlers to resolve the promise and remove the modal
+        const handleConfirm = () => {
+            document.body.removeChild(modalOverlay);
+            resolve(true);
+        };
+
+        const handleCancel = () => {
+            document.body.removeChild(modalOverlay);
+            resolve(false);
+        };
+        
+        confirmBtn.addEventListener('click', handleConfirm);
+        cancelBtn.addEventListener('click', handleCancel);
+
+        // Optional: Allow closing with the Escape key
+        const handleKeydown = (e) => {
+            if (e.key === 'Escape') {
+                handleCancel();
+                document.removeEventListener('keydown', handleKeydown);
+            }
+        };
+        document.addEventListener('keydown', handleKeydown);
+    });
+};
     const isDateInCurrentEthiopianMonth = async (gregorianDateString) => {
         if (!gregorianDateString) return false;
         try {
@@ -342,46 +388,52 @@ document.addEventListener('DOMContentLoaded', () => {
             const deleteButton = rowElement.querySelector('.delete-row-btn');
             const saveButton = rowElement.querySelector('.save-row-btn');
             
-            deleteButton?.addEventListener('click', async () => {
-                if (confirm('Are you sure you want to delete this record and all its sub-items?')) {
-                    const purchase_id = rowElement.getAttribute('data-purchase-id');
-                     const subRowsToDelete = [];
-                     let nextRow = rowElement.nextElementSibling;
-                     while (nextRow && nextRow.classList.contains('sub-row')) {
-                        const subPurchaseId = nextRow.getAttribute('data-purchase-id');
-                        if(subPurchaseId) subRowsToDelete.push(subPurchaseId);
-                        nextRow = nextRow.nextElementSibling;
-                     }
+          // REPLACE the old deleteButton listener with this new one
+deleteButton?.addEventListener('click', async () => {
+    const isConfirmed = await showConfirmationModal('Are you sure you want to delete this record and all its sub-items?');
 
-                    if (!purchase_id) {
-                        let next;
-                        while ((next = rowElement.nextElementSibling) && next.classList.contains('sub-row')) {
-                            next.remove();
-                        }
-                        rowElement.remove();
-                        updateSummaryTotals();
-                        return;
-                    }
-                    try {
-                        const allIdsToDelete = [purchase_id, ...subRowsToDelete].filter(Boolean);
-                        const response = await fetch(`http://localhost:3000/purchase-records`, { 
-                            method: 'DELETE',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ purchase_ids: allIdsToDelete })
-                        });
-                        if (response.ok) {
-                            reloadTableData();
-                            showNotification('Record(s) deleted successfully.', 'success');
-                        } else {
-                            const result = await response.json();
-                            showNotification(`Error: ${result.message}`, 'error');
-                        }
-                    } catch (error) {
-                        showNotification('An error occurred while deleting.', 'error');
-                    }
-                }
+    if (isConfirmed) {
+        const purchase_id = rowElement.getAttribute('data-purchase-id');
+        const subRowsToDelete = [];
+        let nextRow = rowElement.nextElementSibling;
+        while (nextRow && nextRow.classList.contains('sub-row')) {
+            const subPurchaseId = nextRow.getAttribute('data-purchase-id');
+            if (subPurchaseId) subRowsToDelete.push(subPurchaseId);
+            nextRow = nextRow.nextElementSibling;
+        }
+
+        // If there's no purchase_id, it's a new row that hasn't been saved.
+        // Just remove it from the DOM.
+        if (!purchase_id) {
+            let next;
+            while ((next = rowElement.nextElementSibling) && next.classList.contains('sub-row')) {
+                next.remove();
+            }
+            rowElement.remove();
+            updateSummaryTotals();
+            return;
+        }
+
+        // If it has been saved, send a request to the server.
+        try {
+            const allIdsToDelete = [purchase_id, ...subRowsToDelete].filter(Boolean);
+            const response = await fetch(`http://localhost:3000/purchase-records`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ purchase_ids: allIdsToDelete })
             });
-            
+            if (response.ok) {
+                reloadTableData();
+                showNotification('Record(s) deleted successfully.', 'success');
+            } else {
+                const result = await response.json();
+                showNotification(`Error: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            showNotification('An error occurred while deleting.', 'error');
+        }
+    }
+});
             saveButton?.addEventListener('click', () => saveSingleRow(rowElement));
 
             setupAutocomplete(rowElement.querySelector('.vendor-name-input'), 'vendor', rowElement);
