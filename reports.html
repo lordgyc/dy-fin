@@ -58,7 +58,7 @@
                     <button id="export-vat-report-btn" class="btn btn-primary">Export to Excel</button>
                 </div>
             </div>
-            <div class="card"><div class="table-wrapper"><table class="table" id="vat-report-table"><thead><tr><th>Vendor Name</th><th>TIN No</th><th>MRC No</th><th>Purchase Date</th><th>Item Name</th><th class="is-numeric">Quantity</th><th class="is-numeric">Unit Price</th><th class="is-numeric">VAT %</th><th class="is-numeric">VAT Amount</th><th class="is-numeric">Base Total</th><th class="is-numeric">Total Amount</th></tr></thead><tbody><tr><td colspan="11" class="placeholder-cell">Generate a report to see data.</td></tr></tbody><tfoot><tr><td colspan="9"><strong>Total Summary</strong></td><td id="summary-vat-amount" class="is-numeric">0.00</td><td id="summary-base-total" class="is-numeric">0.00</td><td id="summary-total-amount" class="is-numeric"><strong>0.00</strong></td></tr></tfoot></table></div></div>
+            <div class="card"><div class="table-wrapper"><table class="table" id="vat-report-table"><thead><tr><th>Vendor Name</th><th>TIN No</th><th>MRC No</th><th>Purchase Date</th><th>FS Number</th><th>Unit</th><th>Item Name</th><th class="is-numeric">Quantity</th><th class="is-numeric">Unit Price</th><th class="is-numeric">VAT %</th><th class="is-numeric">VAT Amount</th><th class="is-numeric">Base Total</th><th class="is-numeric">Total Amount</th></tr></thead><tbody><tr><td colspan="13" class="placeholder-cell">Generate a report to see data.</td></tr></tbody><tfoot><tr><td colspan="10"><strong>Total Summary</strong></td><td id="summary-vat-amount" class="is-numeric">0.00</td><td id="summary-base-total" class="is-numeric">0.00</td><td id="summary-total-amount" class="is-numeric"><strong>0.00</strong></td></tr></tfoot></table></div></div>
         </section>
 
         <!-- JV Report Section -->
@@ -68,6 +68,8 @@
                 <div class="controls">
                     <input type="date" id="single-date" class="input" title="Select Date">
                     <button id="generate-jv-report-btn" class="btn btn-primary">Generate</button>
+                    <button id="generate-jv-pdf-btn" class="btn btn-primary">Generate PDF</button>
+
                 </div>
             </div>
             <div class="card">
@@ -87,6 +89,8 @@
             </div>
         </section>
 
+        <!-- Summary Report Section -->
+         ...
         <!-- Summary Report Section -->
              <section id="summary-report-section" class="page-section" style="display: none;">
             <div class="page-header">
@@ -109,16 +113,27 @@
                     </select>
                     <input type="number" id="summary-ethiopian-year-input" class="input" title="Ethiopian Year" placeholder="Enter Year (E.C.)">
                     <button id="generate-summary-report-btn" class="btn btn-primary">Generate</button>
+                    <button id="generate-summary-pdf-btn" class="btn btn-primary">Generate PDF</button>
+
                 </div>
             </div>
             <div class="card">
-                <div class="table-wrapper"><table class="table" id="summary-report-table"><thead><tr><th>Date</th></tr></thead><tbody><tr><td colspan="1" class="placeholder-cell">Generate a report to see data.</td></tr></tbody></table></div>
-                <div class="summary-pagination-controls" style="display: none; justify-content: flex-end; padding: 1rem; gap: 0.5rem;">
-                    <button id="prev-summary-page-btn" class="btn">Previous</button>
-                    <span id="summary-page-info" style="align-self: center;"></span>
-                    <button id="next-summary-page-btn" class="btn">Next</button>
+                <!-- The table wrapper's existing CSS will automatically handle scrolling -->
+                <div class="table-wrapper">
+                    <table class="table" id="summary-report-table">
+                        <thead>
+                            <tr><th>Date</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="1" class="placeholder-cell">Generate a report to see data.</td></tr>
+                        </tbody>
+                    </table>
                 </div>
+                <!-- PAGINATION CONTROLS REMOVED FROM HERE -->
             </div>
+        </section>
+...
+   
         </section>
 
         <!-- Management Section -->
@@ -143,24 +158,36 @@
                         </div>
                     </div>
                     <div id="items-tab" class="tab-content">
-                         <div class="content-header">
+                        <div class="content-header">
                             <h3>Manage Categories</h3>
                             <div class="controls">
                                 <button id="openAddCategoryModalBtn" class="btn">Add New Category</button>
-                                <button id="openAddSubcategoryModalBtn" class="btn">Add New Subcategory</button>
+                                <button id="editCategoryBtn" class="btn">Edit Selected</button>
+                                <button id="deleteCategoryBtn" class="btn btn-ghost">Delete Selected</button>
                             </div>
                         </div>
-                        <div class="content-header" style="border-top: 1px solid var(--border); margin-top: 1.5rem; padding-top: 1.5rem;">
+
+                        <div class="content-header" style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid var(--border);">
                             <h3>Manage Items</h3>
+                            <div class="controls">
+                                <button id="openAddSubcategoryModalBtn" class="btn">Add Subcategory</button>
+                                <button id="editSubcategoryBtn" class="btn">Edit Selected Subcategory</button>
+                                <button id="deleteSubcategoryBtn" class="btn btn-ghost">Delete Selected Subcategory</button>
+                            </div>
                         </div>
+
                         <div class="controls" style="margin-bottom: 1.5rem;">
-                            <select id="itemCategorySelect" class="input"></select>
-                            <select id="itemSubcategorySelect" class="input"></select>
-                            <input type="text" id="newItemName" placeholder="New Item Name" class="input">
-                            <input type="number" id="newItemUnitPrice" placeholder="Unit Price" class="input">
-                            <input type="text" id="newItemDescription" placeholder="Description" class="input">
+                            <select id="itemCategorySelect" class="input" title="Filter by Category or Select for Action"></select>
+                            <select id="itemSubcategorySelect" class="input" title="Filter by Subcategory or Select for Action"></select>
+                        </div>
+
+                        <div class="controls" style="margin-bottom: 1.5rem;">
+                            <input type="text" id="newItemName" placeholder="New Item Name" class="input" style="flex-grow: 2;">
+                            <input type="number" id="newItemUnitPrice" placeholder="Unit Price" class="input" style="flex-grow: 1;">
+                            <input type="text" id="newItemDescription" placeholder="Description" class="input" style="flex-grow: 2;">
                             <button id="addItemBtn" class="btn btn-primary">Add Item</button>
                         </div>
+
                         <div class="table-wrapper">
                              <table id="items-table" class="table">
                                <thead><tr><th>Item Name</th><th>Category</th><th>Subcategory</th><th class="is-numeric">Unit Price</th><th>Description</th><th>Actions</th></tr></thead>
@@ -210,7 +237,7 @@
     <div id="addCategoryModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Add Category</h2>
+                <h2 id="categoryModalTitle">Add Category</h2>
                 <button class="close-btn">&times;</button>
             </div>
             <div class="modal-body">
@@ -229,7 +256,7 @@
     <div id="addSubcategoryModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Add Subcategory</h2>
+                <h2 id="subcategoryModalTitle">Add Subcategory</h2>
                 <button class="close-btn">&times;</button>
             </div>
             <div class="modal-body">

@@ -29,9 +29,9 @@ body {
 }
 
 .container {
-  max-width: 100%;
+  max-width: 1600px; 
   margin: 0 auto;
-  padding: 0 1rem;
+  padding: 0 1.5rem; 
 }
 
 /* 2. Header */
@@ -58,10 +58,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin: 1rem 0;
+  margin: 1.5rem 0; 
+  padding-bottom: 0.5rem; 
   gap: 1rem;
 }
-.page-title { margin: 0; font-size: 1.5rem; line-height: 1.2; }
+.page-title { margin: 0; font-size: 1.75rem; line-height: 1.2; } 
 .page-header p { margin: 0; }
 .controls { display: flex; gap: 0.75rem; flex-shrink: 0; }
 
@@ -73,7 +74,7 @@ body {
   gap: 0.5rem;
   border-radius: 6px;
   border: 1px solid var(--border);
-  padding: 0.4rem 0.8rem;
+  padding: 0.5rem 1rem; 
   background: white;
   color: var(--text);
   text-decoration: none;
@@ -81,14 +82,23 @@ body {
   font-size: 13px;
   cursor: pointer;
   transition: all 150ms ease-in-out;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05); 
 }
-.btn:hover { background-color: var(--bg-soft); }
-.btn:disabled { opacity: .6; pointer-events: none; }
+.btn:hover {
+    background-color: var(--bg-soft);
+    transform: translateY(-1px); 
+    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+}
+.btn:active {
+    transform: translateY(0);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+.btn:disabled { opacity: .6; pointer-events: none; transform: none; box-shadow: none;}
 
 .btn-primary { background: var(--primary); border-color: transparent; color: white; }
 .btn-primary:hover { background: #5b21b6; }
 
-.btn-ghost { background: transparent; border-color: transparent; }
+.btn-ghost { background: transparent; border-color: transparent; box-shadow: none; }
 .btn-ghost:hover { background-color: var(--bg-soft); }
 
 .btn-icon {
@@ -96,6 +106,7 @@ body {
   border: none;
   background: transparent;
   color: var(--text-muted);
+  box-shadow: none;
 }
 .btn-icon:hover { background-color: var(--bg-soft); color: var(--text); }
 .btn-danger { color: var(--danger); }
@@ -115,7 +126,7 @@ body {
 /* 6. Table Styles */
 .table-wrapper {
   overflow-x: auto;
-  max-height: calc(100vh - 170px);
+  max-height: calc(100vh - 180px); 
 }
 .table {
   width: 100%;
@@ -123,11 +134,12 @@ body {
   border-spacing: 0;
 }
 .table th, .table td {
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem 0.75rem; 
   border-bottom: 1px solid var(--border);
   white-space: nowrap;
   vertical-align: middle;
   position: relative;
+  transition: background-color 150ms ease-out; 
 }
 .table thead th {
   position: sticky;
@@ -135,19 +147,24 @@ body {
   background: #f9fafb;
   text-align: left;
   font-weight: 600;
-  font-size: 11px;
+  font-size: 12px; 
   text-transform: uppercase;
   color: var(--text-muted);
+  letter-spacing: 0.02em; 
   z-index: 10;
 }
-/* Zebra striping for all rows */
 .table tbody tr:nth-child(even) td {
-    background-color: #f9fafb;
+    background-color: var(--bg-soft);
 }
 
 .table tbody tr:hover td {
     background-color: var(--primary-light);
 }
+.table tbody tr:hover td:first-child {
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+
 .table .sticky-col {
   position: sticky;
   left: 0;
@@ -155,21 +172,21 @@ body {
   background-color: white;
 }
 
-/* Zebra striping for sticky column */
 .table tbody tr:nth-child(even) .sticky-col {
-    background-color: #f9fafb;
+    background-color: var(--bg-soft);
 }
 .table tbody tr:hover .sticky-col { background-color: var(--primary-light); }
 thead .sticky-col { background-color: #f9fafb; z-index: 30; }
-tfoot .sticky-col { background-color: var(--bg-soft); z-index: 30; }
+tfoot .sticky-col { background-color: #f1f5f9; z-index: 30; } 
+
 .table tfoot td {
   position: sticky;
   bottom: 0;
-  background: var(--bg-soft);
+  background: #f1f5f9; 
   border-top: 2px solid var(--border);
   font-weight: 600;
   font-size: 0.9rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.75rem 0.75rem; 
   z-index: 10;
 }
 .is-numeric { text-align: right; }
@@ -184,6 +201,9 @@ tfoot .sticky-col { background-color: var(--bg-soft); z-index: 30; }
 
 .table tbody tr.sub-row:hover td {
     background-color: var(--primary-light);
+}
+.table tbody tr.sub-row:hover td:first-child {
+    box-shadow: none; 
 }
 
 .sub-row td:nth-child(7) {
@@ -239,6 +259,9 @@ tfoot .sticky-col { background-color: var(--bg-soft); z-index: 30; }
   transition: all 150ms ease-in-out;
   appearance: none;
 }
+/* MODIFICATION: Style for the new MRC input */
+.mrc-no-input { cursor: pointer; }
+
 .input:hover, .table select:hover { border-color: #cbd5e1; }
 .input:focus, .table select:focus {
   border-color: var(--primary);
@@ -281,7 +304,7 @@ tfoot .sticky-col { background-color: var(--bg-soft); z-index: 30; }
   box-shadow: 0 8px 16px rgba(15, 23, 42, .1);
   max-height: 200px;
   overflow-y: auto;
-  z-index: 100;
+  z-index: 110;
   display: none;
 }
 .autocomplete-item {
@@ -289,9 +312,12 @@ tfoot .sticky-col { background-color: var(--bg-soft); z-index: 30; }
   cursor: pointer;
   font-size: 13px;
 }
-.autocomplete-item:hover {
+.autocomplete-item:hover,
+.autocomplete-item.highlighted {
   background-color: var(--primary-light);
+  color: var(--primary);
 }
+
 
 /* 9. Notification Modal */
 .notification-modal {

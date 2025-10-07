@@ -5,6 +5,7 @@ const path = require('path');
 const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid'); // Import uuid
 const { sendLogToTelegram, fetchLogsFromTelegram } = require('./telegramBot'); // Import Telegram bot functions
+const puppeteer = require('puppeteer');
 
 module.exports = (userDataPath) => {
   const app = express();
@@ -502,7 +503,7 @@ app.get('/vendors', (req, res) => {
   });
 
   app.get('/categories', (req, res) => {
-      db.all(`SELECT * FROM Categories`, [], (err, rows) => {
+      db.all(`SELECT * FROM Categories ORDER BY category_name`, [], (err, rows) => {
           if (err) {
               console.error('Error fetching categories:', err.message);
               return res.status(500).json({ error: err.message });
@@ -580,6 +581,9 @@ app.get('/vendors', (req, res) => {
 
           db.run(`DELETE FROM Categories WHERE category_id = ?`, [category_id], function(err) {
               if (err) {
+                  if (err.message.includes('SQLITE_CONSTRAINT')) {
+                    return res.status(409).json({ error: 'Cannot delete category. It is currently in use by one or more items.' });
+                  }
                   console.error('Error deleting category:', err.message);
                   return res.status(500).json({ error: err.message });
               }
@@ -644,7 +648,7 @@ app.get('/vendors', (req, res) => {
 
     app.get('/subcategories/:category_id', (req, res) => {
         const { category_id } = req.params;
-        db.all(`SELECT * FROM Subcategories WHERE category_id = ?`, [category_id], (err, rows) => {
+        db.all(`SELECT * FROM Subcategories WHERE category_id = ? ORDER BY subcategory_name`, [category_id], (err, rows) => {
             if (err) {
                 console.error('Error fetching subcategories:', err.message);
                 return res.status(500).json({ error: err.message });
@@ -754,7 +758,7 @@ app.get('/vendors', (req, res) => {
     // ITEMS Endpoints
     app.post('/items', (req, res) => {
         const { item_name, category_id, subcategory_id, unit_price, description } = req.body;
-        if (!item_name || !category_id || !unit_price) {
+        if (!item_name || !category_id || unit_price === undefined) {
             return res.status(400).json({ error: 'Item name, category ID, and unit price are required.' });
         }
         const item_id = uuidv4();
@@ -792,7 +796,7 @@ app.get('/vendors', (req, res) => {
                    JOIN Categories c ON i.category_id = c.category_id
                    LEFT JOIN Subcategories s ON i.subcategory_id = s.subcategory_id`;
         const params = [];
-        const conditions = [];
+        let conditions = [];
 
         if (category_id) {
             conditions.push(`i.category_id = ?`);
@@ -806,6 +810,7 @@ app.get('/vendors', (req, res) => {
         if (conditions.length > 0) {
             sql += ` WHERE ` + conditions.join(` AND `);
         }
+        sql += ` ORDER BY i.item_name`;
 
         db.all(sql, params, (err, rows) => {
             if (err) {
@@ -819,7 +824,7 @@ app.get('/vendors', (req, res) => {
     app.put('/items/:item_id', (req, res) => {
         const { item_id } = req.params;
         const { item_name, category_id, subcategory_id, unit_price, description } = req.body;
-        if (!item_name || !category_id || !unit_price) {
+        if (!item_name || !category_id || unit_price === undefined) {
             return res.status(400).json({ error: 'Item name, category ID, and unit price are required.' });
         }
 
@@ -1293,15 +1298,16 @@ app.get('/vendors', (req, res) => {
                                   });
                               });
                               if (!existingRecord) {
-                                  await new Promise((resolve, reject) => {
-                                      db.run(`INSERT INTO Purchase_Records (purchase_id, vendor_id, item_id, purchase_date, unit, quantity, unit_price, vat_amount, fs_number, total_amount, vat_percentage, mrc_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                                          [log.record_id, new_data.vendorId, new_data.itemId, new_data.purchaseDate, new_data.unit, new_data.quantity, new_data.unitPrice, new_data.totalVat, new_data.fsNumber, (new_data.baseTotal + new_data.totalVat), new_data.vatPercentage, new_data.mrcNo],
-                                          (err) => {
-                                              if (err) reject(err);
-                                              else resolve();
-                                          }
-                                      );
-                                  });
+                                await new Promise((resolve, reject) => {
+                                        db.run(`INSERT INTO Purchase_Records (purchase_id, vendor_id, item_id, purchase_date, unit, quantity, unit_price, vat_amount, fs_number, total_amount, vat_percentage, mrc_number) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                                            [log.record_id, new_data.vendorId, new_data.itemId, new_data.purchaseDate, new_data.unit, new_data.quantity, new_data.unitPrice, new_data.vat_amount, new_data.fsNumber, (new_data.base_total + new_data.vat_amount), new_data.vatPercentage, new_data.mrcNo],
+                                            (err) => {
+                                                if (err) reject(err);
+                                                else resolve();
+                                            }
+                                        );
+                                    })
+                           
                                   fetchedLogsCount++;
                                   console.log(`Applied INSERT for Purchase_Records: ${log.record_id}`);
                               } else {
@@ -1426,32 +1432,52 @@ app.get('/vendors', (req, res) => {
       });
   });
   
+  // *** MODIFICATION START: Updated JV Report Logic ***
   app.get('/reports/jv',(req,res) =>{
-    const {singledate} = req.query
+    const {singledate} = req.query;
     if(!singledate){
-        return res.status(400).json({error: "selected a date please"})
+        return res.status(400).json({error: "A date must be selected."});
     }
-    const sql = `
+    
+    // Query for individual purchase records on the selected day
+    const detailsSql = `
         SELECT 
             i.item_name,
-            SUM(p.total_amount - COALESCE(p.vat_amount, 0)) AS base_total,
+            (p.total_amount - COALESCE(p.vat_amount, 0)) AS base_total
+        FROM Purchase_Records p
+        JOIN Items i ON p.item_id = i.item_id
+        WHERE DATE(p.purchase_date) = ?;
+    `;
+    
+    // Query for the daily totals
+    const totalsSql = `
+        SELECT 
             SUM(COALESCE(p.vat_amount, 0)) AS total_vat,
             SUM(p.total_amount) AS grand_total
         FROM Purchase_Records p
-        JOIN Items i ON p.item_id = i.item_id
-        WHERE DATE(p.purchase_date) = ?
-        GROUP BY i.item_name
-        ORDER BY i.item_name;
+        WHERE DATE(p.purchase_date) = ?;
     `;
-    db.all(sql, [singledate], (err, rows) => {
+
+    // Execute both queries and combine the results
+    db.all(detailsSql, [singledate], (err, detailsRows) => {
         if (err) {
-            console.error('Error fetching JV report:', err.message);
-            res.status(500).json({ error: 'Failed to fetch JV report.' });
-        } else {
-            res.json(rows);
+            console.error('Error fetching JV report details:', err.message);
+            return res.status(500).json({ error: 'Failed to fetch JV report details.' });
         }
+        db.get(totalsSql, [singledate], (totalsErr, totalsRow) => {
+            if (totalsErr) {
+                console.error('Error fetching JV report totals:', totalsErr.message);
+                return res.status(500).json({ error: 'Failed to fetch JV report totals.' });
+            }
+            res.json({
+                details: detailsRows || [],
+                totals: totalsRow || { total_vat: 0, grand_total: 0 }
+            });
+        });
     });         
-})
+  });
+  // *** MODIFICATION END ***
+
   // New endpoint for VAT Report
   app.get('/reports/vat', (req, res) => {
       const { startDate, endDate } = req.query;
@@ -1464,7 +1490,7 @@ app.get('/vendors', (req, res) => {
        const sql = `
           SELECT
               pr.purchase_id, pr.purchase_date, pr.quantity, pr.unit_price, pr.vat_amount,
-              pr.fs_number, pr.total_amount, pr.vat_percentage, pr.mrc_number,
+              pr.fs_number, pr.total_amount, pr.vat_percentage, pr.mrc_number, pr.unit,
               v.vendor_name, v.tin_number, i.item_name
           FROM Purchase_Records pr
           JOIN Vendors v ON pr.vendor_id = v.vendor_id
@@ -1484,56 +1510,115 @@ app.get('/vendors', (req, res) => {
       });
   });
 
-  // *** MODIFICATION START ***
+  // *** MODIFICATION START: ADDED DETAILED LOGGING TO THE POSTING PROCESS ***
   app.post('/change-from-saved-to-posted', (req, res) => {
     let { purchase_ids } = req.body;
 
-    if (!Array.isArray(purchase_ids)) {
-      if (typeof purchase_ids === 'string' || typeof purchase_ids === 'number') {
-        purchase_ids = [purchase_ids];
-      } else {
-        return res.status(400).json({ error: 'purchase_ids must be an array or a single id.' });
-      }
+    if (!Array.isArray(purchase_ids) || purchase_ids.length === 0) {
+      return res.status(400).json({ error: 'purchase_ids must be a non-empty array.' });
     }
 
-    if (!purchase_ids.length) {
-      return res.status(400).json({ error: 'No purchase_ids provided.' });
-    }
+    // Use a transaction to ensure all updates and logs are processed or none are.
+    db.serialize(() => {
+      db.run('BEGIN TRANSACTION');
 
-    // Updated query to set posted_date to the current date
-    const placeholders = purchase_ids.map(() => '?').join(',');
-    const sql = `UPDATE Purchase_Records SET status = 'posted', posted_date = CURRENT_DATE WHERE purchase_id IN (${placeholders})`;
+      let updatedCount = 0;
+      const promises = purchase_ids.map(id => {
+        return new Promise((resolve, reject) => {
+          let oldRecordData = null;
 
-    db.run(sql, purchase_ids, function (err) {
-      if (err) {
-        return res.status(500).json({ error: err.message });
-      }
-      res.json({ 
-        message: `Changed ${this.changes} purchase record(s) to posted.`,
-        updatedCount: this.changes
+          // 1. Fetch the record *before* updating to get old_data for logging
+          db.get(`SELECT * FROM Purchase_Records WHERE purchase_id = ? AND status = 'saved'`, [id], (err, oldRecord) => {
+            if (err) return reject(err);
+            if (!oldRecord) {
+              // If the record is not found or already posted, we can just resolve and skip it.
+              return resolve(); 
+            }
+            oldRecordData = JSON.stringify(oldRecord);
+
+            // 2. Perform the update to change status and set posted_date
+            const sql = `UPDATE Purchase_Records SET status = 'posted', posted_date = CURRENT_DATE WHERE purchase_id = ?`;
+            db.run(sql, [id], function(updateErr) {
+              if (updateErr) return reject(updateErr);
+              
+              if (this.changes > 0) {
+                  updatedCount++;
+              } else {
+                 // No changes were made, so no need to log.
+                 return resolve();
+              }
+
+              // 3. Fetch the record *after* updating to get new_data
+              db.get(`SELECT * FROM Purchase_Records WHERE purchase_id = ?`, [id], (fetchErr, newRecord) => {
+                if (fetchErr) return reject(fetchErr);
+
+                // 4. Insert the change into Activity_Logs
+                const log_id = uuidv4();
+                const newRecordData = JSON.stringify(newRecord);
+                const logSql = `
+                  INSERT INTO Activity_Logs 
+                    (log_id, action_type, table_name, record_id, old_data, new_data) 
+                  VALUES (?, 'UPDATE', 'Purchase_Records', ?, ?, ?)
+                `;
+                db.run(logSql, [log_id, id, oldRecordData, newRecordData], (logErr) => {
+                  if (logErr) return reject(logErr);
+                  resolve(); // Successfully updated and logged this ID
+                });
+              });
+            });
+          });
+        });
       });
+
+      // Execute all promises
+      Promise.all(promises)
+        .then(() => {
+          // If all promises succeed, commit the transaction
+          db.run('COMMIT', (commitErr) => {
+            if (commitErr) {
+              res.status(500).json({ error: 'Failed to commit transaction: ' + commitErr.message });
+            } else {
+              res.json({
+                message: `Changed ${updatedCount} purchase record(s) to posted and logged changes.`,
+                updatedCount: updatedCount
+              });
+            }
+          });
+        })
+        .catch(error => {
+          // If any promise fails, roll back the entire transaction
+          db.run('ROLLBACK', (rollbackErr) => {
+             if (rollbackErr) console.error('Rollback failed:', rollbackErr.message);
+             res.status(500).json({ error: 'An error occurred, transaction rolled back: ' + error.message });
+          });
+        });
     });
   });
   // *** MODIFICATION END ***
+  // server.js
 
-  app.get('/reports/summary', (req, res) => {
+app.get('/reports/summary', (req, res) => {
     const { startDate, endDate } = req.query;
 
     if (!startDate || !endDate) {
         return res.status(400).json({ error: 'Start date and end date are required.' });
     }
 
+    // --- MODIFIED SQL QUERY ---
+    // This query now joins the Subcategories table, groups by subcategory name,
+    // and uses COALESCE to handle items that don't have a subcategory.
     const sql = `
         SELECT
             pr.purchase_date,
-            i.item_name,
+            COALESCE(s.subcategory_name, 'Other') AS item_name, -- Alias subcategory as item_name for the frontend
             SUM(pr.total_amount - COALESCE(pr.vat_amount, 0)) AS base_total,
             SUM(COALESCE(pr.vat_amount, 0)) AS total_vat
         FROM Purchase_Records pr
         JOIN Items i ON pr.item_id = i.item_id
+        LEFT JOIN Subcategories s ON i.subcategory_id = s.subcategory_id -- Use LEFT JOIN to include items without a subcategory
         WHERE DATE(pr.purchase_date) BETWEEN ? AND ?
-        GROUP BY pr.purchase_date, i.item_name
-        ORDER BY pr.purchase_date, i.item_name;
+        GROUP BY pr.purchase_date, COALESCE(s.subcategory_name, 'Other') -- Group by the subcategory name
+        ORDER BY pr.purchase_date, item_name;
     `;
 
     db.all(sql, [startDate, endDate], (err, rows) => {
@@ -1545,6 +1630,271 @@ app.get('/vendors', (req, res) => {
         }
     });
 });
+  // --- Gregorian ↔ Ethiopian Calendar Converter ---
+  const JDN_OFFSET_ETHIOPIC = 1723856;
+
+  function gregorianToJDN(y, m, d) {
+    const a = Math.floor((14 - m) / 12);
+    const y2 = y + 4800 - a;
+    const m2 = m + 12 * a - 3;
+    return d + Math.floor((153 * m2 + 2) / 5) + 365 * y2 + Math.floor(y2 / 4) - Math.floor(y2 / 100) + Math.floor(y2 / 400) - 32045;
+  }
+
+  function jdnToEthiopic(jdn) {
+    const r = (jdn - JDN_OFFSET_ETHIOPIC) % 1461;
+    const n = (r % 365) + 365 * Math.floor(r / 1460);
+    const year = 4 * Math.floor((jdn - JDN_OFFSET_ETHIOPIC) / 1461) + Math.floor(r / 365) - Math.floor(r / 1460);
+    const month = Math.floor(n / 30) + 1;
+    const day = (n % 30) + 1;
+    return { year, month, day };
+  }
+  
+  function gregorianToEthiopic(y, m, d) {
+    const jdn = gregorianToJDN(y, m, d);
+    return jdnToEthiopic(jdn);
+  }
+  app.get('/export/jv-pdf', async (req, res) => {
+    const { singledate } = req.query;
+    if (!singledate) {
+        return res.status(400).json({ error: "A date must be selected." });
+    }
+
+    let browser;
+    try {
+        // Fetch data just like the original JV report endpoint
+        const detailsSql = `
+            SELECT i.item_name, (p.total_amount - COALESCE(p.vat_amount, 0)) AS base_total
+            FROM Purchase_Records p JOIN Items i ON p.item_id = i.item_id WHERE DATE(p.purchase_date) = ?;
+        `;
+        const totalsSql = `
+            SELECT SUM(COALESCE(p.vat_amount, 0)) AS total_vat, SUM(p.total_amount) AS grand_total
+            FROM Purchase_Records p WHERE DATE(p.purchase_date) = ?;
+        `;
+
+        const details = await new Promise((resolve, reject) => db.all(detailsSql, [singledate], (err, rows) => err ? reject(err) : resolve(rows)));
+        const totals = await new Promise((resolve, reject) => db.get(totalsSql, [singledate], (err, row) => err ? reject(err) : resolve(row)));
+
+        // Generate HTML content for the PDF
+        const content = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: sans-serif; margin: 40px; }
+                    h1 { font-size: 18px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
+                    th { background-color: #f2f2f2; text-align: left; }
+                    tfoot td { font-weight: bold; background-color: #f8f8f8; }
+                    .is-numeric { text-align: right; }
+                </style>
+            </head>
+            <body>
+                <h1>Journal Voucher Report for ${singledate}</h1>
+                <table>
+                    <thead>
+                        <tr><th>Items</th><th class="is-numeric">Debt</th><th class="is-numeric">Credit</th></tr>
+                    </thead>
+                    <tbody>
+                        ${details.map(record => `
+                            <tr>
+                                <td>${record.item_name}</td>
+                                <td class="is-numeric">${Math.round(record.base_total || 0)}</td>
+                                <td class="is-numeric"></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td><strong>Total VAT</strong></td>
+                            <td class="is-numeric"><strong>${Math.round(totals.total_vat || 0)}</strong></td>
+                            <td class="is-numeric"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Cash</strong></td>
+                            <td class="is-numeric"></td>
+                            <td class="is-numeric"><strong>${Math.round(totals.grand_total || 0)}</strong></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </body>
+            </html>
+        `;
+
+        // Use Puppeteer to generate PDF
+        browser = await puppeteer.launch({ headless: true });
+        const page = await browser.newPage();
+        await page.setContent(content, { waitUntil: 'networkidle0' });
+        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="JV_Report_${singledate}.pdf"`);
+        res.send(pdfBuffer);
+
+    } catch (error) {
+        console.error('Failed to generate JV PDF:', error);
+        res.status(500).send('Error generating PDF file.');
+    } finally {
+        if (browser) await browser.close();
+    }
+});
+// *** NEW ENDPOINT: Summary Report to PDF (Server-Side) ***
+// server.js
+
+// *** NEW ENDPOINT: Summary Report to PDF (Server-Side) ***
+app.get('/export/summary-pdf', async (req, res) => {
+    const { startDate, endDate } = req.query;
+    if (!startDate || !endDate) {
+        return res.status(400).json({ error: 'Start date and end date are required.' });
+    }
+
+    let browser;
+    try {
+        // --- MODIFIED SQL QUERY ---
+        // Apply the same change here for consistency in the PDF.
+        const sql = `
+            SELECT
+                pr.purchase_date,
+                COALESCE(s.subcategory_name, 'Other') AS item_name, -- Alias subcategory as item_name
+                SUM(pr.total_amount - COALESCE(pr.vat_amount, 0)) AS base_total,
+                SUM(COALESCE(pr.vat_amount, 0)) AS total_vat
+            FROM Purchase_Records pr
+            JOIN Items i ON pr.item_id = i.item_id
+            LEFT JOIN Subcategories s ON i.subcategory_id = s.subcategory_id
+            WHERE DATE(pr.purchase_date) BETWEEN ? AND ?
+            GROUP BY pr.purchase_date, COALESCE(s.subcategory_name, 'Other')
+            ORDER BY pr.purchase_date, item_name;
+        `;
+        const reportData = await new Promise((resolve, reject) => db.all(sql, [startDate, endDate], (err, rows) => err ? reject(err) : resolve(rows)));
+
+        // ... THE REST OF THE PDF GENERATION CODE REMAINS EXACTLY THE SAME ...
+        // It will automatically work because of the 'item_name' alias.
+        
+        if (reportData.length === 0) return res.status(404).send('No data found for the selected range.');
+
+        const allUniqueItems = [...new Set(reportData.map(record => record.item_name))].sort();
+        const groupedByDate = reportData.reduce((acc, record) => {
+            const date = record.purchase_date;
+            if (!acc[date]) {
+                acc[date] = { items: {}, dailyTotalVat: 0 };
+            }
+            // This logic works without changes because record.item_name now holds the subcategory name
+            acc[date].items[record.item_name] = (acc[date].items[record.item_name] || 0) + record.base_total;
+            acc[date].dailyTotalVat += record.total_vat;
+            return acc;
+        }, {});
+
+        const content = `
+            <!DOCTYPE html><html><head><style>
+                body { font-family: sans-serif; margin: 40px; } h1 { font-size: 16px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                th, td { border: 1px solid #ccc; padding: 6px; font-size: 9px; text-align: left; }
+                thead th { background-color: #333; color: white; position: sticky; top: 0; }
+                .is-numeric { text-align: right; }
+            </style></head><body>
+                <h1>Summary Report (${startDate} to ${endDate})</h1>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            ${allUniqueItems.map(item => `<th>${item}</th>`).join('')}
+                            <th class="is-numeric">Total VAT</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${Object.keys(groupedByDate).sort().map(date => `
+                            <tr>
+                                <td>${new Date(date).toLocaleDateString()}</td>
+                                ${allUniqueItems.map(item => `<td class="is-numeric">${(groupedByDate[date].items[item] || 0).toFixed(2)}</td>`).join('')}
+                                <td class="is-numeric">${groupedByDate[date].dailyTotalVat.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </body></html>
+        `;
+
+        browser = await puppeteer.launch({ headless: true });
+        const page = await browser.newPage();
+        await page.setContent(content, { waitUntil: 'networkidle0' });
+        const pdfBuffer = await page.pdf({ format: 'A4', landscape: true, printBackground: true });
+
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `attachment; filename="Summary_Report.pdf"`);
+        res.send(pdfBuffer);
+
+    } catch (error) {
+        console.error('Failed to generate Summary PDF:', error);
+        res.status(500).send('Error generating PDF file.');
+    } finally {
+        if (browser) await browser.close();
+    }
+});
+
+  // *** NEW ENDPOINT: Gregorian to Ethiopian Date Conversion ***
+  app.get('/convert-to-ethiopian', (req, res) => {
+      const { date } = req.query;
+      if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+          return res.status(400).json({ error: 'A valid date query parameter (YYYY-MM-DD) is required.' });
+      }
+
+      try {
+          const [year, month, day] = date.split('-').map(Number);
+          const ethiopianDate = gregorianToEthiopic(year, month, day);
+          res.json(ethiopianDate);
+      } catch (error) {
+          res.status(500).json({ error: 'An error occurred during date conversion.', details: error.message });
+      }
+  });
+
+  // *** NEW ENDPOINT: Get Gregorian Range for Ethiopian Month ***
+  app.get('/get-gregorian-range', (req, res) => {
+      const etYear = parseInt(req.query.year, 10);
+      const etMonth = parseInt(req.query.month, 10);
+      
+      if (!etYear || !etMonth || isNaN(etYear) || isNaN(etMonth)) {
+          return res.status(400).json({ error: 'Valid "year" and "month" query parameters are required.' });
+      }
+
+      try {
+          // The Gregorian year in which the Ethiopian year begins
+          const gregYear = etYear + 7;
+          
+          // Determine the Gregorian date for Meskerem 1 (Ethiopian New Year)
+          // It's on Sep 12 in the Gregorian year *preceding* a leap year
+          const newYearDay = new Date(gregYear, 8, 11);
+          if ((gregYear + 1) % 4 === 0 && (gregYear + 1) % 100 !== 0 || (gregYear + 1) % 400 === 0) {
+              newYearDay.setDate(12);
+          }
+
+          // Calculate the start date by adding the month offset
+          const startOffset = (etMonth - 1) * 30;
+          const startDate = new Date(newYearDay.getTime());
+          startDate.setDate(newYearDay.getDate() + startOffset);
+          
+          // Determine the number of days in the Ethiopian month
+          let daysInMonth = 30;
+          if (etMonth === 13) {
+              const isEthLeap = (etYear + 1) % 4 === 0;
+              daysInMonth = isEthLeap ? 6 : 5;
+          }
+          
+          // Calculate the end date
+          const endDate = new Date(startDate.getTime());
+          endDate.setDate(startDate.getDate() + daysInMonth - 1);
+
+          // Helper to format dates as YYYY-MM-DD
+          const formatDate = (d) => d.toISOString().split('T')[0];
+          
+          res.json({
+              startDate: formatDate(startDate),
+              endDate: formatDate(endDate)
+          });
+      } catch (error) {
+          res.status(500).json({ error: 'An error occurred while calculating the date range.', details: error.message });
+      }
+  });
+
 
   return app;
 };
