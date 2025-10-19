@@ -441,26 +441,22 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- SUMMARY REPORT LOGIC (MODIFIED for scrolling) ---
     async function fetchSummaryReport(startDate, endDate) {
         try {
-            const [reportResponse, subcategoriesResponse] = await Promise.all([
-                fetch(`http://localhost:3000/reports/summary?startDate=${startDate}&endDate=${endDate}`),
-                fetch(`http://localhost:3000/subcategories/all`) // Fetch all subcategories
-            ]);
-
+            const reportResponse = await fetch(`http://localhost:3000/reports/summary?startDate=${startDate}&endDate=${endDate}`);
             const reportData = await reportResponse.json();
-            const allSubcategoryNames = await subcategoriesResponse.json(); // Get all subcategory names
-            console.log(allSubcategoryNames)
-            if (reportResponse.ok && subcategoriesResponse.ok) {
-                renderSummaryReport(reportData, startDate, endDate, allSubcategoryNames); // Pass allSubcategoryNames
-            } else {
-                showNotification(`Error fetching Summary report: ${reportData.error || 'Failed to fetch subcategories'}`);
+
+            if (!reportResponse.ok) {
+                showNotification(`Error fetching Summary report: ${reportData.error || 'Failed to fetch report data'}`);
+                return;
             }
+
+            renderSummaryReport(reportData, startDate, endDate);
         } catch (error) {
             showNotification('Network error fetching Summary report.');
         }
     }
 
-    function renderSummaryReport(reportData, startDate, endDate, allSubcategoryNames) {
-        console.log('renderSummaryReport called with:', { reportData, startDate, endDate, allSubcategoryNames });
+    function renderSummaryReport(reportData, startDate, endDate) {
+        console.log('renderSummaryReport called with:', { reportData, startDate, endDate });
         summaryReportTableHead.innerHTML = '<th>Date</th>';
         summaryReportTableBody.innerHTML = '';
 
@@ -477,8 +473,9 @@ document.addEventListener('DOMContentLoaded', () => {
             currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // Use allSubcategoryNames for header, ensuring 'Other' is included if present
-        allUniqueItems = allSubcategoryNames.sort();
+        // Extract unique item_names (subcategories) from the report data
+        const uniqueItems = [...new Set(reportData.map(record => record.item_name))];
+        allUniqueItems = uniqueItems.sort();
         console.log('allUniqueItems for header:', allUniqueItems);
         
         // Build header

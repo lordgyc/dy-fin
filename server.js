@@ -817,7 +817,8 @@ app.get('/vendors', (req, res) => {
             v.vendor_name AS "Vendor Name", 
             v.tin_number AS "TIN No",
             pr.mrc_number AS "MRC No",
-            pr.purchase_date AS "Purchase Date", 
+            pr.purchase_date AS "Purchase Date",
+            pr.fs_number AS "FS Number",
             i.item_name AS "Item Name",
             pr.quantity AS "Quantity", 
             pr.unit_price AS "Unit Price", 
@@ -828,8 +829,8 @@ app.get('/vendors', (req, res) => {
         FROM Purchase_Records pr
         JOIN Vendors v ON pr.vendor_id = v.vendor_id
         JOIN Items i ON pr.item_id = i.item_id
-        WHERE DATE(pr.purchase_date) BETWEEN ? AND ? AND pr.vat_amount > 0
-        ORDER BY v.vendor_name, pr.purchase_date;
+        WHERE DATE(pr.posted_date) BETWEEN ? AND ? AND pr.vat_amount > 0
+        ORDER BY v.vendor_name, pr.posted_date;
     `;
 
     db.all(sql, [startDate, endDate], (err, rows) => {
@@ -1281,6 +1282,25 @@ app.get('/vendors', (req, res) => {
           });
       });
   });
+    app.get('/subcategories/all', (req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    console.error("greet - subcategories/all endpoint hit"); // Changed to console.error
+      const sql = `
+          SELECT subcategory_name FROM Subcategories;
+      `;
+      db.all(sql, [], (err, rows) => {
+          if (err) {
+              console.error('Error fetching all subcategories:', err.message);
+              return res.status(500).json({ error: 'Failed to fetch all subcategories.' });
+          }
+          console.error('Subcategories fetched from DB:', rows); // Changed to console.error
+          const subcategoryNames = rows.map(row => row.subcategory_name);
+          console.error("run - sending subcategories response"); // Changed to console.error
+          res.json(subcategoryNames);
+      });
+  });
   
   // *** MODIFICATION START: Updated JV Report Logic ***
   app.get('/reports/jv',(req,res) =>{
@@ -1345,8 +1365,8 @@ app.get('/vendors', (req, res) => {
           FROM Purchase_Records pr
           JOIN Vendors v ON pr.vendor_id = v.vendor_id
           JOIN Items i ON pr.item_id = i.item_id
-          WHERE DATE(pr.purchase_date) BETWEEN ? AND ? AND pr.vat_amount > 0
-          ORDER BY v.vendor_name, pr.purchase_date;
+          WHERE DATE(pr.posted_date) BETWEEN ? AND ? AND pr.vat_amount > 0
+          ORDER BY v.vendor_name, pr.posted_date;
       `;
 
 
@@ -1628,45 +1648,108 @@ app.get('/export/summary-pdf', async (req, res) => {
             if (!acc[date]) {
                 acc[date] = { items: {}, dailyTotalVat: 0 };
             }
-            // This logic works without changes because record.item_name now holds the subcategory name
             acc[date].items[record.item_name] = (acc[date].items[record.item_name] || 0) + record.base_total;
             acc[date].dailyTotalVat += record.total_vat;
             return acc;
         }, {});
 
-        const content = `
-            <!DOCTYPE html><html><head><style>
-                body { font-family: sans-serif; margin: 40px; } h1 { font-size: 16px; }
-                table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                th, td { border: 1px solid #ccc; padding: 6px; font-size: 9px; text-align: left; }
-                thead th { background-color: #333; color: white; position: sticky; top: 0; }
-                .is-numeric { text-align: right; }
-            </style></head><body>
+        // Generate all dates in the range
+        const allDatesInMonth = [];
+        let currentDate = new Date(startDate + 'T00:00:00'); // Ensure UTC interpretation
+        const lastDate = new Date(endDate + 'T00:00:00');
+
+        // Helper to format date to YYYY-MM-DD
+        const formatDate = (date) => date.toISOString().split('T')[0];
+
+        while (currentDate <= lastDate) {
+            allDatesInMonth.push(formatDate(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+
+        const fixedColumns = ['Date']; // Fixed column for the first page
+        const totalVatColumn = 'Total VAT'; // Fixed column for the last page
+        const maxDynamicColumnsPerPage = 5; // Max 5 dynamic item columns per page
+
+        let allContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>
+                    body { font-family: sans-serif; margin: 40px; }
+                    h1 { font-size: 16px; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                    th, td { border: 1px solid #ccc; padding: 6px; font-size: 9px; text-align: left; }
+                    thead th { background-color: #333; color: white; position: sticky; top: 0; }
+                    .is-numeric { text-align: right; }
+                    .page-break { page-break-after: always; }
+                </style>
+            </head>
+            <body>
                 <h1>Summary Report (${startDate} to ${endDate})</h1>
-                <table>
+        `;
+
+        // Chunk dynamic columns
+        for (let i = 0; i < allUniqueItems.length; i += maxDynamicColumnsPerPage) {
+            const currentChunkItems = allUniqueItems.slice(i, i + maxDynamicColumnsPerPage);
+            const isFirstChunk = i === 0;
+            const isLastChunk = (i + maxDynamicColumnsPerPage) >= allUniqueItems.length;
+
+            let tableHeaders = '';
+            let tableBodyRows = '';
+
+            // Headers
+            if (isFirstChunk) {
+                tableHeaders += `<th>${fixedColumns[0]}</th>`; // Add 'Date' header only on first page
+            } else {
+                tableHeaders += `<th>${fixedColumns[0]}</th>`; // Add 'Date' header on subsequent pages too
+            }
+            tableHeaders += currentChunkItems.map(item => `<th>${item}</th>`).join('');
+            if (isLastChunk) {
+                tableHeaders += `<th class="is-numeric">${totalVatColumn}</th>`; // Add 'Total VAT' header only on last page
+            }
+
+            // Rows
+            allDatesInMonth.forEach(date => {
+                const dateData = groupedByDate[date];
+                let rowHtml = `<td>${new Date(date + 'T00:00:00').toLocaleDateString()}</td>`;
+
+                if (dateData) {
+                    currentChunkItems.forEach(item => {
+                        const baseTotal = dateData.items[item] || 0;
+                        rowHtml += `<td class="is-numeric">${baseTotal.toFixed(2)}</td>`;
+                    });
+                    if (isLastChunk) {
+                        rowHtml += `<td class="is-numeric">${dateData.dailyTotalVat.toFixed(2)}</td>`;
+                    }
+                } else {
+                    // No data for this date, render empty cells
+                    currentChunkItems.forEach(() => {
+                        rowHtml += `<td class="is-numeric">0.00</td>`;
+                    });
+                    if (isLastChunk) {
+                        rowHtml += `<td class="is-numeric">0.00</td>`; // Empty total VAT
+                    }
+                }
+                tableBodyRows += `<tr>${rowHtml}</tr>`;
+            });
+
+            allContent += `
+                <table class="${!isLastChunk ? 'page-break' : ''}">
                     <thead>
-                        <tr>
-                            <th>Date</th>
-                            ${allUniqueItems.map(item => `<th>${item}</th>`).join('')}
-                            <th class="is-numeric">Total VAT</th>
-                        </tr>
+                        <tr>${tableHeaders}</tr>
                     </thead>
                     <tbody>
-                        ${Object.keys(groupedByDate).sort().map(date => `
-                            <tr>
-                                <td>${new Date(date).toLocaleDateString()}</td>
-                                ${allUniqueItems.map(item => `<td class="is-numeric">${(groupedByDate[date].items[item] || 0).toFixed(2)}</td>`).join('')}
-                                <td class="is-numeric">${groupedByDate[date].dailyTotalVat.toFixed(2)}</td>
-                            </tr>
-                        `).join('')}
+                        ${tableBodyRows}
                     </tbody>
                 </table>
-            </body></html>
-        `;
+            `;
+        }
+
+        allContent += `</body></html>`;
 
         browser = await puppeteer.launch({ headless: true });
         const page = await browser.newPage();
-        await page.setContent(content, { waitUntil: 'networkidle0' });
+        await page.setContent(allContent, { waitUntil: 'networkidle0' });
         const pdfBuffer = await page.pdf({ format: 'A4', landscape: true, printBackground: true });
 
         res.setHeader('Content-Type', 'application/pdf');
@@ -1746,22 +1829,7 @@ app.get('/export/summary-pdf', async (req, res) => {
   });
 
 
-  app.get('/subcategories/all', (res) => {
-    console.log("greet")
-      const sql = `
-          SELECT subcategory_name FROM Subcategories;
-      `;
-      db.all(sql, [], (err, rows) => {
-          if (err) {
-              console.error('Error fetching all subcategories:', err.message);
-              return res.status(500).json({ error: 'Failed to fetch all subcategories.' });
-          }
-          console.log('Subcategories fetched from DB:', rows); // Add this log
-          const subcategoryNames = rows.map(row => row.subcategory_name);
-          console.log("run")
-          res.json(subcategoryNames);
-      });
-  });
+
 
   return app;
 };

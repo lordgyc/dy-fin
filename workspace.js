@@ -131,8 +131,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const disabledClass = isEditable ? '' : 'disabled-input';
         const tinNumber = data.tin_number || '';
         const mrcNumber = data.mrc_number || 'N/A'; // *** MODIFICATION: Default MRC value
-        const quantity = data.quantity || 0;
-        const unitPrice = data.unit_price || 0;
+        const quantity = parseFloat(data.quantity) || 0;
+        const unitPrice = parseFloat(data.unit_price) || 0;
         const vatPercentage = (data.vat_percentage !== undefined && data.vat_percentage > 0) ? data.vat_percentage : 15;
         const baseTotal = quantity * unitPrice;
         const calculatedVatAmount = vatOnChecked ? (baseTotal * (vatPercentage / 100)) : 0;
@@ -349,24 +349,29 @@ document.addEventListener('DOMContentLoaded', () => {
         function populateSubitemRow(parentRow, data = {}, isSubEditable = true) {
             const subRow = document.createElement('tr');
             subRow.classList.add('sub-row');
-            const quantity = data.quantity || 0;
-            const unitPrice = data.unit_price || 0;
+            const quantity = parseFloat(data.quantity) || 0;
+            const unitPrice = parseFloat(data.unit_price) || 0;
             const vatPercentage = (data.vat_percentage !== undefined && data.vat_percentage > 0) ? data.vat_percentage : 15;
             const vatOn = data.purchase_id ? (data.vat_amount > 0) : true;
             
-            const baseTotal = quantity * unitPrice;
-            const totalVat = vatOn ? baseTotal * (vatPercentage / 100) : 0;
+            let baseTotal = quantity * unitPrice;
+            let totalVat = 0;
+            if (vatOn) {
+                totalVat = baseTotal * (vatPercentage / 100);
+            }
             const subtotal = baseTotal + totalVat;
             
             const disabledAttr = isSubEditable ? '' : 'disabled';
             const disabledClass = isSubEditable ? '' : 'disabled-input';
 
             subRow.innerHTML = `
-                <td class="sticky-col sub-row-actions is-center">
-                    ${isSubEditable ? `<button class="remove-sub-row btn btn-icon btn-danger" title="Remove Item"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>` : ''}
+                <td colspan="4"></td>
+                <td>
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                        <input type="text" placeholder="Sub-item name..." class="sub-item-name input ${disabledClass}" data-item-id="${data.item_id || ''}" value="${data.item_name || ''}" ${disabledAttr} />
+                        ${isSubEditable ? `<button class="remove-sub-row btn btn-icon btn-danger" title="Remove Item" style="padding: 4px; min-width: 24px; height: 24px;"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>` : ''}
+                    </div>
                 </td>
-                <td colspan="3"></td>
-                <td><input type="text" placeholder="Sub-item name..." class="sub-item-name input ${disabledClass}" data-item-id="${data.item_id || ''}" value="${data.item_name || ''}" ${disabledAttr} /></td>
                 <td><input type="text" placeholder="Unit" class="sub-unit input ${disabledClass}" value="${data.unit || ''}" ${disabledAttr} /></td>
                 <td class="is-numeric"><input type="number" placeholder="0" class="sub-quantity input is-numeric ${disabledClass}" min="0" value="${quantity}" ${disabledAttr} /></td>
                 <td class="is-numeric"><input type="number" placeholder="0.00" class="sub-unit-price input is-numeric ${disabledClass}" min="0" step="0.01" value="${unitPrice.toFixed(2)}" ${disabledAttr} /></td>
@@ -1008,9 +1013,21 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.ctrlKey && e.key.toLowerCase() === 'i') {
                 e.preventDefault();
                 const focusedRow = activeElement.closest('tr');
-                if (focusedRow && actionsTableBody.contains(focusedRow)) {
+                if (focusedRow) { // Removed actionsTableBody.contains(focusedRow) check
                     let mainRow = focusedRow.classList.contains('main-row') ? focusedRow : focusedRow.closest('tr.main-row');
                     if(mainRow) window.populateSubitemRow(mainRow);
+                }
+            }
+            // Shortcut for VAT toggle (Ctrl + F)
+            if (e.ctrlKey && e.key.toLowerCase() === 'f') {
+                e.preventDefault();
+                const focusedRow = activeElement.closest('tr');
+                if (focusedRow) {
+                    const vatCheckbox = focusedRow.querySelector('.vat-onoff-input, .sub-vat-onoff');
+                    if (vatCheckbox && !vatCheckbox.disabled) {
+                        vatCheckbox.checked = !vatCheckbox.checked;
+                        vatCheckbox.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 }
             }
         }
@@ -1030,17 +1047,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const cellIndex = Array.from(currentRow.children).indexOf(currentCell);
             let nextElement = null;
 
-            if (key === 'ArrowUp' || key === 'ArrowDown') {
-                let targetRow = key === 'ArrowUp' ? currentRow.previousElementSibling : currentRow.nextElementSibling;
-
-                // Special handling for navigating from main-row down to sub-row's item name
-                if (key === 'ArrowDown' && currentRow.classList.contains('main-row') && targetRow && targetRow.classList.contains('sub-row')) {
-                    if (cellIndex < 4) { // Columns before "Item Name"
-                        nextElement = targetRow.querySelector('.sub-item-name');
-                    }
+            if (key === 'ArrowDown') {
+                let targetRow = currentRow.nextElementSibling;
+                if (currentRow.classList.contains('main-row') && targetRow && targetRow.classList.contains('sub-row')) {
+                    nextElement = targetRow.querySelector('.sub-item-name');
+                } else if (targetRow) {
+                    const targetCell = targetRow.children[cellIndex];
+                    nextElement = targetCell?.querySelector('input:not([disabled]), .checkbox:not([disabled])');
                 }
-                
-                if (!nextElement && targetRow) {
+            } else if (key === 'ArrowUp') {
+                let targetRow = currentRow.previousElementSibling;
+                if (currentRow.classList.contains('sub-row') && targetRow && targetRow.classList.contains('main-row')) {
+                    nextElement = targetRow.querySelector('.item-name-input');
+                } else if (targetRow) {
                     const targetCell = targetRow.children[cellIndex];
                     nextElement = targetCell?.querySelector('input:not([disabled]), .checkbox:not([disabled])');
                 }

@@ -262,19 +262,8 @@ body {
 }
 
 .sub-row td:nth-child(5) {
-    padding-left: 2rem;
+    padding-left: 0.75rem; /* Adjust padding as the arrow icon is now a button inside the cell */
     position: relative;
-}
-
-.sub-row td:nth-child(5)::before {
-    content: '↳';
-    position: absolute;
-    left: 0.75rem;
-    top: 50%;
-    transform: translateY(-50%);
-    color: var(--text-muted);
-    font-size: 1.2em;
-    font-weight: bold;
 }
 
 .sub-row .input {
