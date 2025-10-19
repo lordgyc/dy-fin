@@ -44,50 +44,29 @@
       </div>
     </div>
 
-    <section class="card">
-      <div class="card-header">
-        <strong>Purchase Entries</strong>
-      </div>
-      <div class="card-body">
-        <div class="table-wrapper">
-          <table class="table" id="actions-table">
-            <thead>
-              <tr>
-                <th class="sticky-col">Actions</th>
-                <th>Vendor Name</th>
-                <th>MRC No</th>
-                <th>TIN No</th>
-                <th>Purchase Date</th>
-                <th>FS Number</th>
-                <th>Item Name</th>
-                <th>Unit</th>
-                <th class="is-numeric">Quantity</th>
-                <th class="is-numeric">Unit Price</th>
-                <th class="is-numeric">VAT %</th>
-                <th class="is-center">VAT On/Off</th>
-                <th class="is-numeric">Base Total</th>
-                <th class="is-numeric">Total VAT</th>
-                <th class="is-numeric">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              <!-- This area will be populated by workspace.js -->
-            </tbody>
-            <tfoot>
-              <!-- Summary Row -->
-              <tr>
-                <td class="sticky-col"><strong>Summary</strong></td>
-                <td colspan="10"></td>
-                <td><strong>Totals</strong></td>
-                <td class="is-numeric" id="summary-vat-exclude">0.00</td>
-                <td class="is-numeric" id="summary-total-vat">0.00</td>
-                <td class="is-numeric"><strong id="summary-subtotal">0.00</strong></td>
-              </tr>
-            </tfoot>
-          </table>
+    <div id="purchase-groups-container" class="purchase-groups-container">
+      <!-- Purchase group components will be dynamically inserted here -->
+    </div>
+
+    <footer class="summary-footer">
+        <div class="summary-content">
+            <div class="summary-label"><strong>Workspace Summary</strong></div>
+            <div class="summary-totals">
+                <div class="summary-item">
+                    <span>Base Total:</span>
+                    <span class="is-numeric" id="summary-vat-exclude">0.00</span>
+                </div>
+                <div class="summary-item">
+                    <span>Total VAT:</span>
+                    <span class="is-numeric" id="summary-total-vat">0.00</span>
+                </div>
+                <div class="summary-item summary-grand-total">
+                    <span>Grand Total:</span>
+                    <strong class="is-numeric" id="summary-subtotal">0.00</strong>
+                </div>
+            </div>
         </div>
-      </div>
-    </section>
+    </footer>
   </main>
 
   <div id="notification-modal" class="notification-modal">

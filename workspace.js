@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const summarySubtotal = document.getElementById('summary-subtotal');
     const summaryTotalVat = document.getElementById('summary-total-vat');
     const summaryVatExclude = document.getElementById('summary-vat-exclude');
-
+    const tablesContainer = document.getElementById('tablesContainer');
     const viewPostedBtn = document.getElementById('view-posted-btn');
     const postedDateControls = document.getElementById('posted-date-controls');
     const postedDatePicker = document.getElementById('posted-date-picker');
@@ -133,23 +133,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const mrcNumber = data.mrc_number || 'N/A'; // *** MODIFICATION: Default MRC value
         const quantity = data.quantity || 0;
         const unitPrice = data.unit_price || 0;
-        const vatPercentage = data.vat_percentage !== undefined ? data.vat_percentage : 15;
+        const vatPercentage = (data.vat_percentage !== undefined && data.vat_percentage > 0) ? data.vat_percentage : 15;
         const baseTotal = quantity * unitPrice;
         const calculatedVatAmount = vatOnChecked ? (baseTotal * (vatPercentage / 100)) : 0;
         const subtotal = baseTotal + calculatedVatAmount;
 
+        // Date handling fix to avoid timezone issues
+        const purchaseDate = data.purchase_date ? data.purchase_date.split('T')[0] : new Date().toISOString().split('T')[0];
+
         return `
             <tr data-purchase-id="${data.purchase_id || ''}" class="main-row">
-                <td class="sticky-col action-cell">
-                    ${isEditable ? `
-                        <button class="save-row-btn btn btn-icon" title="Save (Ctrl+S)"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg></button>
-                        <button class="delete-row-btn btn btn-icon btn-danger" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
-                    ` : `<span style="color: var(--text-muted);">Posted</span>`}
+                <td>
+                    <input type="text" class="vendor-name-input input ${disabledClass}" data-vendor-id="${data.vendor_id || ''}" value="${data.vendor_name || ''}" data-tin-number="${tinNumber}" ${disabledAttr}>
+                    <div class="tin-display">${tinNumber}</div>
                 </td>
-                <td><input type="text" class="vendor-name-input input ${disabledClass}" data-vendor-id="${data.vendor_id || ''}" value="${data.vendor_name || ''}" ${disabledAttr}></td>
                 <td><input type="text" class="mrc-no-input input ${disabledClass}" value="${mrcNumber}" readonly ${disabledAttr}></td>
-                <td><input type="text" class="tin-no-input input ${disabledClass}" value="${tinNumber}" ${disabledAttr}></td>
-                <td><input type="date" class="purchase-date-input input ${disabledClass}" value="${data.purchase_date ? data.purchase_date.split('T')[0] : new Date().toISOString().split('T')[0]}" ${disabledAttr}></td>
+                <td><input type="date" class="purchase-date-input input ${disabledClass}" value="${purchaseDate}" ${disabledAttr}></td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 4px;">
                         <input type="text" class="fs-number-input input ${disabledClass}" value="${data.fs_number || ''}" ${disabledAttr}>
@@ -160,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><input type="text" class="unit-input input ${disabledClass}" value="${data.unit || ''}" ${disabledAttr}></td>
                 <td class="is-numeric"><input type="number" class="quantity-input input is-numeric ${disabledClass}" value="${quantity}" min="0" ${disabledAttr}></td>
                 <td class="is-numeric"><input type="number" class="unit-price-input input is-numeric ${disabledClass}" value="${unitPrice.toFixed(2)}" min="0" step="0.01" ${disabledAttr}></td>
-                <td class="is-numeric"><input type="number" class="vat-percentage-input input is-numeric ${disabledClass}" value="${vatPercentage}" min="0" step="0.01" ${disabledAttr}></td>
+                <td class="is-numeric vat-percentage-cell" style="display: none;"><input type="number" class="vat-percentage-input input is-numeric ${disabledClass}" value="${vatPercentage}" min="0" step="0.01" ${disabledAttr}></td>
                 <td class="is-center"><input type="checkbox" class="vat-onoff-input checkbox ${disabledClass}" ${vatOnChecked ? 'checked' : ''} ${disabledAttr}></td>
                 <td class="base-total-display is-numeric">${baseTotal.toFixed(2)}</td>
                 <td class="total-vat-display is-numeric">${calculatedVatAmount.toFixed(2)}</td>
@@ -278,13 +277,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (totalVatDisplay) totalVatDisplay.textContent = totalVat.toFixed(2);
         if (subtotalDisplay) subtotalDisplay.innerHTML = `<strong>${subtotal.toFixed(2)}</strong>`;
         
+        updateComponentSummary(rowElement.closest('.purchase-group-card'));
         updateSummaryTotals();
+    };
+    
+    const updateComponentSummary = (cardElement) => {
+        if (!cardElement) return;
+        let componentBase = 0;
+        let componentVat = 0;
+
+        cardElement.querySelectorAll('tbody tr').forEach(row => {
+            const baseDisplay = row.querySelector('.base-total-display, .sub-base-total-display');
+            const vatDisplay = row.querySelector('.total-vat-display, .sub-vat-total-display');
+            componentBase += parseFloat(baseDisplay?.textContent) || 0;
+            componentVat += parseFloat(vatDisplay?.textContent) || 0;
+        });
+
+        const componentGrandTotal = componentBase + componentVat;
+        const baseTotalEl = cardElement.querySelector('.component-base-total');
+        const vatTotalEl = cardElement.querySelector('.component-vat-total');
+        const grandTotalEl = cardElement.querySelector('.component-grand-total');
+
+        if (baseTotalEl) baseTotalEl.textContent = componentBase.toFixed(2);
+        if (vatTotalEl) vatTotalEl.textContent = componentVat.toFixed(2);
+        if (grandTotalEl) grandTotalEl.textContent = componentGrandTotal.toFixed(2);
     };
     
     const updateSummaryTotals = () => {
         let totalBaseAmount = 0;
         let totalVatAmount = 0;
-        document.querySelectorAll('#actions-table tbody tr').forEach(row => {
+        // Query across all tables in the container
+        document.querySelectorAll('#purchase-groups-container .table tbody tr').forEach(row => {
             const baseDisplay = row.querySelector('.base-total-display, .sub-base-total-display');
             const vatDisplay = row.querySelector('.total-vat-display, .sub-vat-total-display');
             totalBaseAmount += parseFloat(baseDisplay?.textContent) || 0;
@@ -297,6 +320,8 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const attachRowEventListeners = (rowElement, isEditable = true) => {
+        const card = rowElement.closest('.purchase-group-card');
+
         if (isEditable) {
             setupCalculationListeners(rowElement);
             
@@ -326,8 +351,8 @@ document.addEventListener('DOMContentLoaded', () => {
             subRow.classList.add('sub-row');
             const quantity = data.quantity || 0;
             const unitPrice = data.unit_price || 0;
-            const vatPercentage = data.vat_percentage !== undefined ? data.vat_percentage : 15;
-            const vatOn = data.purchase_id ? (data.vat_amount > 0 || data.vatOn) : true;
+            const vatPercentage = (data.vat_percentage !== undefined && data.vat_percentage > 0) ? data.vat_percentage : 15;
+            const vatOn = data.purchase_id ? (data.vat_amount > 0) : true;
             
             const baseTotal = quantity * unitPrice;
             const totalVat = vatOn ? baseTotal * (vatPercentage / 100) : 0;
@@ -340,12 +365,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="sticky-col sub-row-actions is-center">
                     ${isSubEditable ? `<button class="remove-sub-row btn btn-icon btn-danger" title="Remove Item"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>` : ''}
                 </td>
-                <td></td><td></td><td></td><td></td><td></td>
+                <td colspan="3"></td>
                 <td><input type="text" placeholder="Sub-item name..." class="sub-item-name input ${disabledClass}" data-item-id="${data.item_id || ''}" value="${data.item_name || ''}" ${disabledAttr} /></td>
                 <td><input type="text" placeholder="Unit" class="sub-unit input ${disabledClass}" value="${data.unit || ''}" ${disabledAttr} /></td>
                 <td class="is-numeric"><input type="number" placeholder="0" class="sub-quantity input is-numeric ${disabledClass}" min="0" value="${quantity}" ${disabledAttr} /></td>
                 <td class="is-numeric"><input type="number" placeholder="0.00" class="sub-unit-price input is-numeric ${disabledClass}" min="0" step="0.01" value="${unitPrice.toFixed(2)}" ${disabledAttr} /></td>
-                <td class="is-numeric"><input type="number" placeholder="15" class="sub-vat-percentage input is-numeric ${disabledClass}" min="0" step="0.01" value="${vatPercentage}" ${disabledAttr} /></td>
+                <td class="is-numeric vat-percentage-cell" style="display: none;"><input type="number" placeholder="15" class="sub-vat-percentage input is-numeric ${disabledClass}" min="0" step="0.01" value="${vatPercentage}" ${disabledAttr} /></td>
                 <td class="is-center"><input type="checkbox" class="sub-vat-onoff checkbox ${disabledClass}" ${vatOn ? 'checked' : ''} ${disabledAttr} /></td>
                 <td class="is-numeric sub-base-total-display">${baseTotal.toFixed(2)}</td>
                 <td class="is-numeric sub-vat-total-display">${totalVat.toFixed(2)}</td>
@@ -366,7 +391,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const removeBtn = subRow.querySelector('.remove-sub-row');
                 removeBtn.addEventListener('click', () => {
+                    const card = subRow.closest('.purchase-group-card');
                     subRow.remove();
+                    updateComponentSummary(card);
                     updateSummaryTotals();
                 });
 
@@ -385,46 +412,37 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     
         if (isEditable) {
-            const deleteButton = rowElement.querySelector('.delete-row-btn');
-            const saveButton = rowElement.querySelector('.save-row-btn');
+            const deleteButton = card.querySelector('.delete-row-btn');
+            const saveButton = card.querySelector('.save-row-btn');
             
-          // REPLACE the old deleteButton listener with this new one
-deleteButton?.addEventListener('click', async () => {
-    const isConfirmed = await showConfirmationModal('Are you sure you want to delete this record and all its sub-items?');
+            deleteButton?.addEventListener('click', async () => {
+    const card = rowElement.closest('.purchase-group-card');
+    const isConfirmed = await showConfirmationModal('Are you sure you want to delete this entire component and all its records?');
 
     if (isConfirmed) {
-        const purchase_id = rowElement.getAttribute('data-purchase-id');
-        const subRowsToDelete = [];
-        let nextRow = rowElement.nextElementSibling;
-        while (nextRow && nextRow.classList.contains('sub-row')) {
-            const subPurchaseId = nextRow.getAttribute('data-purchase-id');
-            if (subPurchaseId) subRowsToDelete.push(subPurchaseId);
-            nextRow = nextRow.nextElementSibling;
-        }
+        const purchaseIdsToDelete = Array.from(card.querySelectorAll('tr[data-purchase-id]'))
+            .map(row => row.getAttribute('data-purchase-id'))
+            .filter(Boolean);
 
-        // If there's no purchase_id, it's a new row that hasn't been saved.
+        // If there are no purchase IDs, it's a new, unsaved component.
         // Just remove it from the DOM.
-        if (!purchase_id) {
-            let next;
-            while ((next = rowElement.nextElementSibling) && next.classList.contains('sub-row')) {
-                next.remove();
-            }
-            rowElement.remove();
+        if (purchaseIdsToDelete.length === 0) {
+            card.remove();
             updateSummaryTotals();
             return;
         }
 
         // If it has been saved, send a request to the server.
         try {
-            const allIdsToDelete = [purchase_id, ...subRowsToDelete].filter(Boolean);
             const response = await fetch(`http://localhost:3000/purchase-records`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ purchase_ids: allIdsToDelete })
+                body: JSON.stringify({ purchase_ids: purchaseIdsToDelete })
             });
             if (response.ok) {
-                reloadTableData();
-                showNotification('Record(s) deleted successfully.', 'success');
+                card.remove();
+                updateSummaryTotals();
+                showNotification('Component deleted successfully.', 'success');
             } else {
                 const result = await response.json();
                 showNotification(`Error: ${result.message}`, 'error');
@@ -445,25 +463,36 @@ deleteButton?.addEventListener('click', async () => {
     };
 
     const setupAutocomplete = (inputElement, type, rowElement) => {
-        const cell = inputElement.parentElement;
-        if (!cell) return;
+        if (!inputElement) return;
+        
         const dropdown = document.createElement('div');
         dropdown.classList.add('autocomplete-dropdown');
-        cell.appendChild(dropdown);
+        document.body.appendChild(dropdown); // Append to body
         let timeout = null;
         let activeIndex = -1;
+
+        const positionDropdown = () => {
+            if (dropdown.style.display !== 'block') return;
+            const inputRect = inputElement.getBoundingClientRect();
+            dropdown.style.left = `${inputRect.left}px`;
+            dropdown.style.top = `${inputRect.bottom + window.scrollY}px`;
+            dropdown.style.width = `${inputRect.width}px`;
+        };
 
         const handleSelection = (selectedItem, moveFocus = false) => {
             dropdown.style.display = 'none';
             if (type === 'vendor') {
                 inputElement.value = selectedItem.vendor_name;
                 inputElement.setAttribute('data-vendor-id', selectedItem.vendor_id);
-                rowElement.querySelector('.tin-no-input').value = selectedItem.tin_number || '';
+                inputElement.setAttribute('data-tin-number', selectedItem.tin_number || '');
+                rowElement.querySelector('.tin-display').textContent = selectedItem.tin_number || '';
                 const mrcInput = rowElement.querySelector('.mrc-no-input');
                 const mrcNumbers = selectedItem.mrc_numbers || [];
                 mrcInput.dataset.mrcNumbers = JSON.stringify(mrcNumbers);
                 mrcInput.value = mrcNumbers[0] || 'N/A';
-                if (moveFocus) mrcInput.focus(); // Move focus to MRC input
+                if (moveFocus) {
+                    mrcInput.focus();
+                }
             } else if (type === 'item') {
                 const isSub = rowElement.classList.contains('sub-row');
                 inputElement.value = selectedItem.item_name;
@@ -516,21 +545,40 @@ deleteButton?.addEventListener('click', async () => {
                             dropdown.appendChild(item);
                         });
                         dropdown.style.display = 'block';
+                        positionDropdown(); // Position it
                     } else {
                         dropdown.style.display = 'none';
                     }
                 } catch (err) { console.error(`${type} search failed:`, err); }
             }, 300);
         });
+
+        // Reposition on scroll and resize
+        window.addEventListener('scroll', positionDropdown, true); // Use capture to catch scroll events in containers
+        window.addEventListener('resize', positionDropdown);
+
+        // Hide when clicking away
+        document.addEventListener('click', (e) => {
+            if (!inputElement.contains(e.target) && !dropdown.contains(e.target)) {
+                dropdown.style.display = 'none';
+            }
+        });
     };
 
     const setupMrcDropdown = (mrcInput) => {
-        const cell = mrcInput.parentElement;
-        if (!cell) return;
+        if (!mrcInput) return;
         const dropdown = document.createElement('div');
         dropdown.classList.add('autocomplete-dropdown');
-        cell.appendChild(dropdown);
+        document.body.appendChild(dropdown);
         let activeIndex = -1;
+
+        const positionDropdown = () => {
+            if (dropdown.style.display !== 'block') return;
+            const inputRect = mrcInput.getBoundingClientRect();
+            dropdown.style.left = `${inputRect.left}px`;
+            dropdown.style.top = `${inputRect.bottom + window.scrollY}px`;
+            dropdown.style.width = `${inputRect.width}px`;
+        };
 
         const showDropdown = () => {
             const mrcNumbers = JSON.parse(mrcInput.dataset.mrcNumbers || '[]');
@@ -547,11 +595,20 @@ deleteButton?.addEventListener('click', async () => {
                     dropdown.appendChild(item);
                 });
                 dropdown.style.display = 'block';
+                positionDropdown();
+            } else {
+                dropdown.style.display = 'none';
             }
         };
 
         mrcInput.addEventListener('focus', showDropdown);
         mrcInput.addEventListener('click', showDropdown);
+
+        // Reposition on scroll and resize
+        window.addEventListener('scroll', positionDropdown, true);
+        window.addEventListener('resize', positionDropdown);
+
+        // Hide when clicking away (handled globally later)
 
         mrcInput.addEventListener('keydown', (e) => {
             if (dropdown.style.display !== 'block') return;
@@ -581,7 +638,7 @@ deleteButton?.addEventListener('click', async () => {
         const vendorId = vendorNameInput?.getAttribute('data-vendor-id');
         const vendorName = vendorNameInput?.value;
         const mrcNo = rowElement.querySelector('.mrc-no-input')?.value;
-        const tinNo = rowElement.querySelector('.tin-no-input')?.value;
+        const tinNo = vendorNameInput?.getAttribute('data-tin-number');
         const purchaseDate = rowElement.querySelector('.purchase-date-input')?.value;
         const fsNumber = rowElement.querySelector('.fs-number-input')?.value;
         const status = 'saved';
@@ -592,7 +649,7 @@ deleteButton?.addEventListener('click', async () => {
             const unitPrice = parseFloat(row.querySelector(isSub ? '.sub-unit-price' : '.unit-price-input')?.value) || 0;
             const vatOn = row.querySelector(isSub ? '.sub-vat-onoff' : '.vat-onoff-input')?.checked;
             
-            const originalVatPercentage = parseFloat(row.querySelector(isSub ? '.sub-vat-percentage' : '.vat-percentage-input')?.value) || 0;
+            const originalVatPercentage = parseFloat(row.querySelector(isSub ? '.sub-vat-percentage' : '.vat-percentage-input')?.value) || 15;
             const vatPercentageToSave = vatOn ? originalVatPercentage : 0;
 
             let base_total = quantity * unitPrice;
@@ -662,11 +719,60 @@ deleteButton?.addEventListener('click', async () => {
     };
     
     addRowBtn.addEventListener('click', () => {
-        actionsTableBody.insertAdjacentHTML('afterbegin', createNewRowHTML());
-        const newRowElement = actionsTableBody.firstElementChild;
+        const container = document.getElementById('purchase-groups-container');
+        const groupComponent = document.createElement('div');
+        groupComponent.className = 'purchase-group-card';
+        
+        // Create a unique key for new groups that haven't been saved
+        const newGroupKey = `new-group-${Date.now()}`;
+
+        groupComponent.innerHTML = `
+            <div class="card-header">
+                <div class="header-info">
+                    <div class="fs-number-display">FS Number: <strong>N/A</strong></div>
+                    <div class="purchase-date-display">${new Date().toLocaleDateString()}</div>
+                </div>
+                <div class="component-summary">
+                    <div class="summary-item"><span>Base:</span> <strong class="component-base-total">0.00</strong></div>
+                    <div class="summary-item"><span>VAT:</span> <strong class="component-vat-total">0.00</strong></div>
+                    <div class="summary-item"><span>Total:</span> <strong class="component-grand-total">0.00</strong></div>
+                </div>
+                <div class="header-actions">
+                    <button class="save-row-btn btn btn-icon" title="Save (Ctrl+S)"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg></button>
+                    <button class="delete-row-btn btn btn-icon btn-danger" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table class="table" data-fs-group="${newGroupKey}">
+                    <thead>
+                        <tr>
+                            <th>Vendor Name</th>
+                            <th>MRC No</th>
+                            <th>Purchase Date</th>
+                            <th>FS Number</th>
+                            <th>Item Name</th>
+                            <th>Unit</th>
+                            <th class="is-numeric">Quantity</th>
+                            <th class="is-numeric">Unit Price</th>
+                            <th class="is-numeric vat-percentage-cell" style="display: none;">VAT %</th>
+                            <th class="is-center">VAT On/Off</th>
+                            <th class="is-numeric">Base Total</th>
+                            <th class="is-numeric">Total VAT</th>
+                            <th class="is-numeric">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${createNewRowHTML()}
+                    </tbody>
+                </table>
+            </div>
+        `;
+        
+        container.insertAdjacentElement('afterbegin', groupComponent);
+        const newRowElement = groupComponent.querySelector('tbody tr');
         if (newRowElement) {
             attachRowEventListeners(newRowElement, true);
-            newRowElement.querySelector('input, select')?.focus();
+            newRowElement.querySelector('.vendor-name-input')?.focus();
         }
     });
 
@@ -676,7 +782,7 @@ deleteButton?.addEventListener('click', async () => {
         showSyncStatus('Starting sync process...', 'loading');
 
         try {
-            const rows = document.querySelectorAll('#actions-table tbody tr.main-row[data-purchase-id], #actions-table tbody tr.sub-row[data-purchase-id]');
+            const rows = document.querySelectorAll('#purchase-groups-container .table tbody tr.main-row[data-purchase-id], #purchase-groups-container .table tbody tr.sub-row[data-purchase-id]');
             const unpostedIds = Array.from(rows).map(row => row.getAttribute('data-purchase-id')).filter(id => id);
 
             if (unpostedIds.length > 0) {
@@ -714,81 +820,112 @@ deleteButton?.addEventListener('click', async () => {
         }
     });
 
-    const reloadTableData = async () => {
+   const reloadTableData = async (isPostedView = false) => {
+        const container = document.getElementById('purchase-groups-container');
+        if (!container) return;
+        container.innerHTML = '<div class="loading-indicator">Loading records...</div>';
+
         try {
-            const response = await fetch('http://localhost:3000/saved-purchase-records');
+            const endpoint = isPostedView ? `http://localhost:3000/posted-purchase-records?date=${postedDatePicker.value}` : 'http://localhost:3000/saved-purchase-records';
+            const response = await fetch(endpoint);
             const records = await response.json();
-            actionsTableBody.innerHTML = '';
-            
-            if (response.ok && records.length > 0) {
-                const groupedByFsNumber = records.reduce((acc, record) => {
-                    const key = record.fs_number || `no-fs-${record.purchase_id}`;
-                    if (!acc[key]) acc[key] = [];
-                    acc[key].push(record);
-                    return acc;
-                }, {});
+            container.innerHTML = '';
 
-                Object.values(groupedByFsNumber).forEach(group => {
-                    const mainRecord = group[0];
-                    actionsTableBody.insertAdjacentHTML('beforeend', populateRowWithData(mainRecord, true));
-                    const mainRowElement = actionsTableBody.lastElementChild;
-                    attachRowEventListeners(mainRowElement, true);
-
-                    if (group.length > 1) {
-                        group.slice(1).forEach(subRecord => {
-                            const subRowElement = window.populateSubitemRow(mainRowElement, subRecord, true);
-                            subRowElement.setAttribute('data-purchase-id', subRecord.purchase_id);
-                        });
-                    }
-                });
-            } else { 
-                addRowBtn.click(); 
+            if (!response.ok) {
+                container.innerHTML = `<div class="error-message">Failed to load records: ${records.message || 'Unknown error'}</div>`;
+                return;
             }
+
+            if (records.length === 0) {
+                if (!isPostedView) {
+                    addRowBtn.click(); // Create a new empty group if no saved records exist
+                } else {
+                    container.innerHTML = '<div class="info-message">No posted records found for this date.</div>';
+                }
+                return;
+            }
+
+            const groupedByFsNumber = records.reduce((acc, record) => {
+                const key = record.fs_number || `new-record-${Date.now()}`;
+                if (!acc[key]) acc[key] = [];
+                acc[key].push(record);
+                return acc;
+            }, {});
+
+            Object.entries(groupedByFsNumber).forEach(([fsNumber, group]) => {
+                const mainRecord = group.find(r => !r.parent_id) || group[0];
+                const subRecords = group.filter(r => r.purchase_id !== mainRecord.purchase_id);
+
+                const groupComponent = document.createElement('div');
+                groupComponent.className = 'purchase-group-card';
+                
+                // Date handling fix to avoid timezone issues
+                const purchaseDate = new Date(mainRecord.purchase_date);
+                const displayDate = new Date(purchaseDate.getUTCFullYear(), purchaseDate.getUTCMonth(), purchaseDate.getUTCDate()).toLocaleDateString();
+
+                groupComponent.innerHTML = `
+                    <div class="card-header">
+                        <div class="header-info">
+                            <div class="fs-number-display">FS Number: <strong>${fsNumber.startsWith('new-record') ? 'N/A' : fsNumber}</strong></div>
+                            <div class="purchase-date-display">${displayDate}</div>
+                        </div>
+                        <div class="component-summary">
+                            <div class="summary-item"><span>Base:</span> <strong class="component-base-total">0.00</strong></div>
+                            <div class="summary-item"><span>VAT:</span> <strong class="component-vat-total">0.00</strong></div>
+                            <div class="summary-item"><span>Total:</span> <strong class="component-grand-total">0.00</strong></div>
+                        </div>
+                        <div class="header-actions">
+                            ${!isPostedView ? `
+                                <button class="save-row-btn btn btn-icon" title="Save (Ctrl+S)"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg></button>
+                                <button class="delete-row-btn btn btn-icon btn-danger" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
+                            ` : `<span class="posted-label">Posted</span>`}
+                        </div>
+                    </div>
+                    <div class="table-wrapper">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Vendor Name</th>
+                                    <th>MRC No</th>
+                                    <th>Purchase Date</th>
+                                    <th>FS Number</th>
+                                    <th>Item Name</th>
+                            <th>Unit</th>
+                            <th class="is-numeric">Quantity</th>
+                            <th class="is-numeric">Unit Price</th>
+                            <th class="is-numeric vat-percentage-cell" style="display: none;">VAT %</th>
+                            <th class="is-center">VAT On/Off</th>
+                                    <th class="is-numeric">Base Total</th>
+                                    <th class="is-numeric">Total VAT</th>
+                                    <th class="is-numeric">Subtotal</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                `;
+                
+                const tbody = groupComponent.querySelector('tbody');
+                tbody.insertAdjacentHTML('beforeend', populateRowWithData(mainRecord, !isPostedView));
+                const mainRowElement = tbody.lastElementChild;
+                attachRowEventListeners(mainRowElement, !isPostedView);
+
+                subRecords.forEach(subRecord => {
+                    const subRow = populateSubitemRow(mainRowElement, subRecord, !isPostedView);
+                    subRow.setAttribute('data-purchase-id', subRecord.purchase_id);
+                });
+                
+                updateComponentSummary(groupComponent);
+                container.appendChild(groupComponent);
+            });
+
             updateSummaryTotals();
         } catch (error) {
-            console.error('Error fetching initial records:', error);
-            addRowBtn.click();
+            console.error('Error fetching records:', error);
+            container.innerHTML = `<div class="error-message">An error occurred: ${error.message}</div>`;
         }
     };
 
-    const loadPostedData = async (date) => {
-        actionsTableBody.innerHTML = `<tr><td colspan="15" style="text-align: center; padding: 2rem;">Loading...</td></tr>`;
-        try {
-            const response = await fetch(`http://localhost:3000/posted-purchase-records?date=${date}`);
-            const records = await response.json();
-            actionsTableBody.innerHTML = '';
-
-            if (response.ok && records.length > 0) {
-                const groupedByFsNumber = records.reduce((acc, record) => {
-                    const key = record.fs_number || `no-fs-${record.purchase_id}`;
-                    if (!acc[key]) acc[key] = [];
-                    acc[key].push(record);
-                    return acc;
-                }, {});
-
-                Object.values(groupedByFsNumber).forEach(group => {
-                    const mainRecord = group[0];
-                    actionsTableBody.insertAdjacentHTML('beforeend', populateRowWithData(mainRecord, false));
-                    const mainRowElement = actionsTableBody.lastElementChild;
-                    attachRowEventListeners(mainRowElement, false);
-                    if (group.length > 1) {
-                        group.slice(1).forEach(subRecord => {
-                            const subRowElement = window.populateSubitemRow(mainRowElement, subRecord, false);
-                            subRowElement.setAttribute('data-purchase-id', subRecord.purchase_id);
-                        });
-                    }
-                });
-            } else {
-                actionsTableBody.innerHTML = `<tr><td colspan="15" style="text-align: center; padding: 2rem;">No records were posted on this date.</td></tr>`;
-            }
-            updateSummaryTotals();
-        } catch (error) {
-            console.error('Error fetching posted records:', error);
-            showNotification(error.message, 'error');
-            actionsTableBody.innerHTML = `<tr><td colspan="15" style="text-align: center; padding: 2rem; color: var(--danger);">Failed to load records.</td></tr>`;
-        }
-    };
-    
     viewPostedBtn.addEventListener('click', () => {
         postedDateControls.style.display = 'flex';
         viewPostedBtn.style.display = 'none';
@@ -801,7 +938,7 @@ deleteButton?.addEventListener('click', async () => {
             showNotification('Please select a date to load posted records.', 'warning');
             return;
         }
-        loadPostedData(selectedDate);
+        reloadTableData(true); // Pass true to indicate posted view
         mainActionButtons.style.display = 'none';
         postedDateControls.style.display = 'none';
         backToWorkspaceBtn.style.display = 'inline-block';
@@ -895,7 +1032,15 @@ deleteButton?.addEventListener('click', async () => {
 
             if (key === 'ArrowUp' || key === 'ArrowDown') {
                 let targetRow = key === 'ArrowUp' ? currentRow.previousElementSibling : currentRow.nextElementSibling;
-                if (targetRow) {
+
+                // Special handling for navigating from main-row down to sub-row's item name
+                if (key === 'ArrowDown' && currentRow.classList.contains('main-row') && targetRow && targetRow.classList.contains('sub-row')) {
+                    if (cellIndex < 4) { // Columns before "Item Name"
+                        nextElement = targetRow.querySelector('.sub-item-name');
+                    }
+                }
+                
+                if (!nextElement && targetRow) {
                     const targetCell = targetRow.children[cellIndex];
                     nextElement = targetCell?.querySelector('input:not([disabled]), .checkbox:not([disabled])');
                 }
@@ -914,44 +1059,78 @@ deleteButton?.addEventListener('click', async () => {
             }
         }
 
-        if (key === 'Enter') {
-            e.preventDefault();
-            const focusable = Array.from(currentRow.querySelectorAll('input:not([disabled]), .checkbox:not([disabled])'));
-            const currentIndex = focusable.indexOf(activeElement);
-            const nextIndex = currentIndex + (e.shiftKey ? -1 : 1);
+        if (key === 'Enter' || key === ' ') { // Allow Space to toggle checkbox
+            if (activeElement.type === 'checkbox' && key === ' ') {
+                e.preventDefault();
+                activeElement.checked = !activeElement.checked;
+                // Manually trigger change event for calculations
+                activeElement.dispatchEvent(new Event('change', { bubbles: true }));
+                return; // Stop further execution for space on checkbox
+            }
 
-            if (nextIndex >= 0 && nextIndex < focusable.length) {
-                const nextElement = focusable[nextIndex];
-                nextElement.focus();
-                if (nextElement.select) nextElement.select();
-            } else if (!e.shiftKey && nextIndex >= focusable.length) {
-                const nextRow = currentRow.nextElementSibling;
-                if (nextRow) {
-                    nextRow.querySelector('input:not([disabled]), .checkbox:not([disabled])')?.focus();
-                } else {
-                    addRowBtn.click();
+            if (key === 'Enter') {
+                e.preventDefault();
+                const focusable = Array.from(currentRow.querySelectorAll('input:not([disabled]), .checkbox:not([disabled])'));
+                const currentIndex = focusable.indexOf(activeElement);
+                const nextIndex = currentIndex + (e.shiftKey ? -1 : 1);
+
+                if (nextIndex >= 0 && nextIndex < focusable.length) {
+                    const nextElement = focusable[nextIndex];
+                    nextElement.focus();
+                    if (nextElement.select) nextElement.select();
+                } else if (!e.shiftKey && nextIndex >= focusable.length) {
+                    const nextRow = currentRow.nextElementSibling;
+                    if (nextRow) {
+                        nextRow.querySelector('input:not([disabled]), .checkbox:not([disabled])')?.focus();
+                    } else {
+                        addRowBtn.click();
+                    }
                 }
             }
         }
 
         if (key === 'Tab') {
             e.preventDefault();
-            let targetRow = e.shiftKey ? currentRow.previousElementSibling : currentRow.nextElementSibling;
-            while (targetRow && !targetRow.matches('tr')) {
-                targetRow = e.shiftKey ? targetRow.previousElementSibling : targetRow.nextElementSibling;
-            }
+            const currentCard = currentRow.closest('.purchase-group-card');
+            const allCards = Array.from(document.querySelectorAll('.purchase-group-card'));
+            const currentCardIndex = allCards.indexOf(currentCard);
 
-            if (targetRow) {
-                const nextElement = targetRow.querySelector('input:not([disabled]), .checkbox:not([disabled])');
+            let nextCardIndex = currentCardIndex + (e.shiftKey ? -1 : 1);
+            
+            if (nextCardIndex >= 0 && nextCardIndex < allCards.length) {
+                const nextCard = allCards[nextCardIndex];
+                const nextElement = nextCard.querySelector('input:not([disabled]), .checkbox:not([disabled])');
                 if (nextElement) {
                     nextElement.focus();
                     if (nextElement.select) nextElement.select();
                 }
+            } else if (!e.shiftKey && nextCardIndex >= allCards.length) {
+                addRowBtn.focus(); // Focus on the "Add Row" button after the last card
+            } else if (e.shiftKey && nextCardIndex < 0) {
+                // Potentially focus a button in the header or just stop
             }
         }
     });
 
     if (postedDatePicker) postedDatePicker.value = new Date().toISOString().split('T')[0];
     
+    // Add focus-based auto-scrolling to tables
+    document.addEventListener('focusin', (e) => {
+        if (e.target.matches('.table .input, .table .checkbox')) {
+            const cell = e.target.closest('td');
+            const tableWrapper = e.target.closest('.table-wrapper');
+            if (cell && tableWrapper) {
+                const cellRect = cell.getBoundingClientRect();
+                const wrapperRect = tableWrapper.getBoundingClientRect();
+
+                // Scroll to make the cell visible
+                tableWrapper.scrollBy({
+                    left: cellRect.left - wrapperRect.left - 10, // a little offset
+                    behavior: 'smooth'
+                });
+            }
+        }
+    });
+
     reloadTableData();
 });

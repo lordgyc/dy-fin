@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
+const sqlite3 = require('sqlite3')
 const path = require('path');
 const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid'); // Import uuid
@@ -13,6 +13,7 @@ module.exports = (userDataPath) => {
 
   app.use(cors());
   app.use(express.json());
+  app.use(express.static(path.join(__dirname, '.'))); // Serve static files from the current directory
 
   // Construct the database path using userDataPath
   const dbPath = path.join(userDataPath, 'finance.db');
@@ -123,158 +124,7 @@ module.exports = (userDataPath) => {
                   } else {
                       console.log('All tables created or already exist.');
 
-                      // Insert fake vendor data if tables are empty
-                      db.get(`SELECT COUNT(*) as count FROM Vendors`, (err, row) => {
-                          if (err) {
-                              console.error('Error checking Vendors table:', err.message);
-                              return;
-                          }
-                          if (row.count === 0) {
-                              const vendors = [
-                                  { name: 'Vendor A', tin: 'TIN-123456', mrcs: ['MRC-001', 'MRC-002'] },
-                                  { name: 'Vendor B', tin: 'TIN-789012', mrcs: ['MRC-003'] },
-                                  { name: 'Vendor C', tin: 'TIN-345678', mrcs: ['MRC-004', 'MRC-005', 'MRC-006'] },
-                                  { name: 'Vendor D', tin: 'TIN-901234', mrcs: [] }
-                              ];
-
-                              vendors.forEach(vendor => {
-                                  const vendorId = uuidv4();
-                                  db.run('INSERT INTO Vendors (vendor_id, vendor_name, tin_number, contact_info, address) VALUES (?, ?, ?, ?, ?)',
-                                      [vendorId, vendor.name, vendor.tin, 'N/A', 'N/A'], function(vendorErr) {
-                                      if (vendorErr) {
-                                          console.error(`Error inserting vendor ${vendor.name}:`, vendorErr.message);
-                                      } else {
-                                          if (vendor.mrcs.length > 0) {
-                                              vendor.mrcs.forEach(mrc => {
-                                                  const mrcId = uuidv4();
-                                                  db.run('INSERT INTO MRC_Numbers (mrc_id, vendor_id, mrc_number) VALUES (?, ?, ?)', [mrcId, vendorId, mrc], (mrcErr) => {
-                                                      if (mrcErr) {
-                                                          console.error(`Error inserting MRC ${mrc} for ${vendor.name}:`, mrcErr.message);
-                                                      }
-                                                  });
-                                              });
-                                          }
-                                          console.log(`Inserted vendor: ${vendor.name} with ID: ${vendorId}`);
-                                      }
-                                  });
-                              });
-                          }
-                      });
-
-                      // Insert fake category data if table is empty
-                      db.get(`SELECT COUNT(*) as count FROM Categories`, (err, row) => {
-                          if (err) {
-                              console.error('Error checking Categories table:', err.message);
-                              return;
-                          }
-                          if (row.count === 0) {
-                              const categories = ['Electronics', 'Office Supplies', 'Food'];
-                              categories.forEach(categoryName => {
-                                  const categoryId = uuidv4();
-                                  db.run('INSERT INTO Categories (category_id, category_name) VALUES (?, ?)', [categoryId, categoryName], function(catErr) {
-                                      if (catErr) {
-                                          console.error(`Error inserting category ${categoryName}:`, catErr.message);
-                                      } else {
-                                          console.log(`Inserted category: ${categoryName}`);
-                                      }
-                                  });
-                              });
-                          }
-                      });
-
-                      // Insert fake subcategory data if table is empty
-                      db.get(`SELECT COUNT(*) as count FROM Subcategories`, (err, row) => {
-                          if (err) {
-                              console.error('Error checking Subcategories table:', err.message);
-                              return;
-                          }
-                          if (row.count === 0) {
-                              db.get(`SELECT category_id FROM Categories WHERE category_name = 'Electronics'`, (err, electronicsCat) => {
-                                  const electronicsId = electronicsCat ? electronicsCat.category_id : null;
-                                  db.get(`SELECT category_id FROM Categories WHERE category_name = 'Office Supplies'`, (err, officeSuppliesCat) => {
-                                      const officeSuppliesId = officeSuppliesCat ? officeSuppliesCat.category_id : null;
-
-                                      if (electronicsId) {
-                                          const laptopsSubcatId = uuidv4();
-                                          db.run('INSERT INTO Subcategories (subcategory_id, category_id, subcategory_name) VALUES (?, ?, ?)', [laptopsSubcatId, electronicsId, 'Laptops'], (subErr) => {
-                                              if (subErr) console.error('Error inserting subcategory Laptops:', subErr.message);
-                                              else console.log('Inserted subcategory: Laptops');
-                                          });
-                                          const peripheralsSubcatId = uuidv4();
-                                          db.run('INSERT INTO Subcategories (subcategory_id, category_id, subcategory_name) VALUES (?, ?, ?)', [peripheralsSubcatId, electronicsId, 'Peripherals'], (subErr) => {
-                                              if (subErr) console.error('Error inserting subcategory Peripherals:', subErr.message);
-                                              else console.log('Inserted subcategory: Peripherals');
-                                          });
-                                      }
-                                      if (officeSuppliesId) {
-                                          const writingSubcatId = uuidv4();
-                                          db.run('INSERT INTO Subcategories (subcategory_id, category_id, subcategory_name) VALUES (?, ?, ?)', [writingSubcatId, officeSuppliesId, 'Writing Instruments'], (subErr) => {
-                                              if (subErr) console.error('Error inserting subcategory Writing Instruments:', subErr.message);
-                                              else console.log('Inserted subcategory: Writing Instruments');
-                                          });
-                                          const paperSubcatId = uuidv4();
-                                          db.run('INSERT INTO Subcategories (subcategory_id, category_id, subcategory_name) VALUES (?, ?, ?)', [paperSubcatId, officeSuppliesId, 'Paper Products'], (subErr) => {
-                                              if (subErr) console.error('Error inserting subcategory Paper Products:', subErr.message);
-                                              else console.log('Inserted subcategory: Paper Products');
-                                          });
-                                      }
-                                  });
-                              });
-                          }
-                      });
-
-                      // Insert fake item data if table is empty
-                      db.get(`SELECT COUNT(*) as count FROM Items`, (err, row) => {
-                          if (err) {
-                              console.error('Error checking Items table:', err.message);
-                              return;
-                          }
-                          if (row.count === 0) {
-                              db.get(`SELECT category_id FROM Categories WHERE category_name = 'Electronics'`, (err, electronicsCat) => {
-                                  const electronicsId = electronicsCat ? electronicsCat.category_id : null;
-                                  db.get(`SELECT category_id FROM Categories WHERE category_name = 'Office Supplies'`, (err, officeSuppliesCat) => {
-                                      const officeSuppliesId = officeSuppliesCat ? officeSuppliesCat.category_id : null;
-
-                                      // Fetch subcategory IDs
-                                      db.get(`SELECT subcategory_id FROM Subcategories WHERE subcategory_name = 'Laptops'`, (err, laptopsSubcat) => {
-                                          const laptopsSubcatId = laptopsSubcat ? laptopsSubcat.subcategory_id : null;
-                                          db.get(`SELECT subcategory_id FROM Subcategories WHERE subcategory_name = 'Peripherals'`, (err, peripheralsSubcat) => {
-                                              const peripheralsSubcatId = peripheralsSubcat ? peripheralsSubcat.subcategory_id : null;
-                                              db.get(`SELECT subcategory_id FROM Subcategories WHERE subcategory_name = 'Writing Instruments'`, (err, writingSubcat) => {
-                                                  const writingSubcatId = writingSubcat ? writingSubcat.subcategory_id : null;
-                                                  db.get(`SELECT subcategory_id FROM Subcategories WHERE subcategory_name = 'Paper Products'`, (err, paperSubcat) => {
-                                                      const paperSubcatId = paperSubcat ? paperSubcat.subcategory_id : null;
-
-                                                      const items = [
-                                                          { name: 'Laptop', category_id: electronicsId, subcategory_id: laptopsSubcatId, unit_price: 1200.00 },
-                                                          { name: 'Gaming Mouse', category_id: electronicsId, subcategory_id: peripheralsSubcatId, unit_price: 60.00 },
-                                                          { name: 'Wireless Keyboard', category_id: electronicsId, subcategory_id: peripheralsSubcatId, unit_price: 90.00 },
-                                                          { name: 'Notebook (A4)', category_id: officeSuppliesId, subcategory_id: paperSubcatId, unit_price: 5.50 },
-                                                          { name: 'Gel Pen (Blue)', category_id: officeSuppliesId, subcategory_id: writingSubcatId, unit_price: 1.20 }
-                                                      ];
-
-                                                      items.forEach(item => {
-                                                          if (item.category_id) {
-                                                              const itemId = uuidv4();
-                                                              db.run('INSERT INTO Items (item_id, item_name, category_id, subcategory_id, unit_price, description) VALUES (?, ?, ?, ?, ?, ?)',
-                                                                  [itemId, item.name, item.category_id, item.subcategory_id, item.unit_price, 'N/A'], (itemErr) => {
-                                                                  if (itemErr) {
-                                                                      console.error(`Error inserting item ${item.name}:`, itemErr.message);
-                                                                  } else {
-                                                                      console.log(`Inserted item: ${item.name}`);
-                                                                  }
-                                                              });
-                                                          }
-                                                      });
-                                                  });
-                                              });
-                                          });
-                                      });
-                                  });
-                              });
-                          }
-                      });
-
+                      
                       // Endpoint to create a default admin user if no users exist - MOVED HERE
                       db.get('SELECT COUNT(*) as count FROM Users', (err, row) => {
                           if (err) {
@@ -1220,12 +1070,12 @@ app.get('/vendors', (req, res) => {
               pr.vat_amount, pr.fs_number, pr.total_amount, pr.vat_percentage, pr.mrc_number,
               v.vendor_id, v.vendor_name, v.tin_number,
               i.item_id, i.item_name
-          FROM Purchase_Records pr
-          JOIN Vendors v ON pr.vendor_id = v.vendor_id
-          JOIN Items i ON pr.item_id = i.item_id
-          WHERE pr.posted_date = ?
-          ORDER BY pr.purchase_date DESC
-      `;
+            FROM Purchase_Records pr
+            JOIN Vendors v ON pr.vendor_id = v.vendor_id
+            JOIN Items i ON pr.item_id = i.item_id
+            WHERE pr.posted_date = ?
+            ORDER BY pr.posted_date DESC
+        `;
 
       db.all(sql, [date], (err, rows) => {
           if (err) {
@@ -1441,21 +1291,21 @@ app.get('/vendors', (req, res) => {
     
     // Query for individual purchase records on the selected day
     const detailsSql = `
-        SELECT 
+        SELECT
             i.item_name,
             (p.total_amount - COALESCE(p.vat_amount, 0)) AS base_total
         FROM Purchase_Records p
         JOIN Items i ON p.item_id = i.item_id
-        WHERE DATE(p.purchase_date) = ?;
+        WHERE DATE(p.posted_date) = ?;
     `;
-    
+
     // Query for the daily totals
     const totalsSql = `
-        SELECT 
+        SELECT
             SUM(COALESCE(p.vat_amount, 0)) AS total_vat,
             SUM(p.total_amount) AS grand_total
         FROM Purchase_Records p
-        WHERE DATE(p.purchase_date) = ?;
+        WHERE DATE(p.posted_date) = ?;
     `;
 
     // Execute both queries and combine the results
@@ -1609,16 +1459,16 @@ app.get('/reports/summary', (req, res) => {
     // and uses COALESCE to handle items that don't have a subcategory.
     const sql = `
         SELECT
-            pr.purchase_date,
+            pr.posted_date AS purchase_date, -- Alias posted_date as purchase_date for frontend compatibility
             COALESCE(s.subcategory_name, 'Other') AS item_name, -- Alias subcategory as item_name for the frontend
             SUM(pr.total_amount - COALESCE(pr.vat_amount, 0)) AS base_total,
             SUM(COALESCE(pr.vat_amount, 0)) AS total_vat
         FROM Purchase_Records pr
         JOIN Items i ON pr.item_id = i.item_id
         LEFT JOIN Subcategories s ON i.subcategory_id = s.subcategory_id -- Use LEFT JOIN to include items without a subcategory
-        WHERE DATE(pr.purchase_date) BETWEEN ? AND ?
-        GROUP BY pr.purchase_date, COALESCE(s.subcategory_name, 'Other') -- Group by the subcategory name
-        ORDER BY pr.purchase_date, item_name;
+        WHERE DATE(pr.posted_date) BETWEEN ? AND ?
+        GROUP BY pr.posted_date, COALESCE(s.subcategory_name, 'Other') -- Group by the subcategory name
+        ORDER BY pr.posted_date, item_name;
     `;
 
     db.all(sql, [startDate, endDate], (err, rows) => {
@@ -1664,11 +1514,11 @@ app.get('/reports/summary', (req, res) => {
         // Fetch data just like the original JV report endpoint
         const detailsSql = `
             SELECT i.item_name, (p.total_amount - COALESCE(p.vat_amount, 0)) AS base_total
-            FROM Purchase_Records p JOIN Items i ON p.item_id = i.item_id WHERE DATE(p.purchase_date) = ?;
+            FROM Purchase_Records p JOIN Items i ON p.item_id = i.item_id WHERE DATE(p.posted_date) = ?;
         `;
         const totalsSql = `
             SELECT SUM(COALESCE(p.vat_amount, 0)) AS total_vat, SUM(p.total_amount) AS grand_total
-            FROM Purchase_Records p WHERE DATE(p.purchase_date) = ?;
+            FROM Purchase_Records p WHERE DATE(p.posted_date) = ?;
         `;
 
         const details = await new Promise((resolve, reject) => db.all(detailsSql, [singledate], (err, rows) => err ? reject(err) : resolve(rows)));
@@ -1754,16 +1604,16 @@ app.get('/export/summary-pdf', async (req, res) => {
         // Apply the same change here for consistency in the PDF.
         const sql = `
             SELECT
-                pr.purchase_date,
+                pr.posted_date AS purchase_date, -- Alias posted_date as purchase_date for frontend compatibility
                 COALESCE(s.subcategory_name, 'Other') AS item_name, -- Alias subcategory as item_name
                 SUM(pr.total_amount - COALESCE(pr.vat_amount, 0)) AS base_total,
                 SUM(COALESCE(pr.vat_amount, 0)) AS total_vat
             FROM Purchase_Records pr
             JOIN Items i ON pr.item_id = i.item_id
             LEFT JOIN Subcategories s ON i.subcategory_id = s.subcategory_id
-            WHERE DATE(pr.purchase_date) BETWEEN ? AND ?
-            GROUP BY pr.purchase_date, COALESCE(s.subcategory_name, 'Other')
-            ORDER BY pr.purchase_date, item_name;
+            WHERE DATE(pr.posted_date) BETWEEN ? AND ?
+            GROUP BY pr.posted_date, COALESCE(s.subcategory_name, 'Other')
+            ORDER BY pr.posted_date, item_name;
         `;
         const reportData = await new Promise((resolve, reject) => db.all(sql, [startDate, endDate], (err, rows) => err ? reject(err) : resolve(rows)));
 
@@ -1895,6 +1745,23 @@ app.get('/export/summary-pdf', async (req, res) => {
       }
   });
 
+
+  app.get('/subcategories/all', (res) => {
+    console.log("greet")
+      const sql = `
+          SELECT subcategory_name FROM Subcategories;
+      `;
+      db.all(sql, [], (err, rows) => {
+          if (err) {
+              console.error('Error fetching all subcategories:', err.message);
+              return res.status(500).json({ error: 'Failed to fetch all subcategories.' });
+          }
+          console.log('Subcategories fetched from DB:', rows); // Add this log
+          const subcategoryNames = rows.map(row => row.subcategory_name);
+          console.log("run")
+          res.json(subcategoryNames);
+      });
+  });
 
   return app;
 };

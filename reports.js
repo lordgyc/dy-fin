@@ -441,34 +441,68 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- SUMMARY REPORT LOGIC (MODIFIED for scrolling) ---
     async function fetchSummaryReport(startDate, endDate) {
         try {
-            const response = await fetch(`http://localhost:3000/reports/summary?startDate=${startDate}&endDate=${endDate}`);
-            const reportData = await response.json();
-            if (response.ok) renderSummaryReport(reportData);
-            else showNotification(`Error fetching Summary report: ${reportData.error}`);
+            const [reportResponse, subcategoriesResponse] = await Promise.all([
+                fetch(`http://localhost:3000/reports/summary?startDate=${startDate}&endDate=${endDate}`),
+                fetch(`http://localhost:3000/subcategories/all`) // Fetch all subcategories
+            ]);
+
+            const reportData = await reportResponse.json();
+            const allSubcategoryNames = await subcategoriesResponse.json(); // Get all subcategory names
+            console.log(allSubcategoryNames)
+            if (reportResponse.ok && subcategoriesResponse.ok) {
+                renderSummaryReport(reportData, startDate, endDate, allSubcategoryNames); // Pass allSubcategoryNames
+            } else {
+                showNotification(`Error fetching Summary report: ${reportData.error || 'Failed to fetch subcategories'}`);
+            }
         } catch (error) {
             showNotification('Network error fetching Summary report.');
         }
     }
 
-    function renderSummaryReport(reportData) {
+    function renderSummaryReport(reportData, startDate, endDate, allSubcategoryNames) {
+        console.log('renderSummaryReport called with:', { reportData, startDate, endDate, allSubcategoryNames });
         summaryReportTableHead.innerHTML = '<th>Date</th>';
         summaryReportTableBody.innerHTML = '';
 
-        if (!reportData || reportData.length === 0) {
-            summaryReportTableBody.innerHTML = '<tr><td colspan="1" class="placeholder-cell">No data available.</td></tr>';
-            return;
+        // Helper to format date to YYYY-MM-DD
+        const formatDate = (date) => date.toISOString().split('T')[0];
+
+        // Generate all dates in the range
+        const allDatesInMonth = [];
+        let currentDate = new Date(startDate + 'T00:00:00'); // Ensure UTC interpretation
+        const lastDate = new Date(endDate + 'T00:00:00');
+
+        while (currentDate <= lastDate) {
+            allDatesInMonth.push(formatDate(currentDate));
+            currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        currentReportData = reportData;
-        allUniqueItems = [...new Set(reportData.map(record => record.item_name))].sort();
+        // Use allSubcategoryNames for header, ensuring 'Other' is included if present
+        allUniqueItems = allSubcategoryNames.sort();
+        console.log('allUniqueItems for header:', allUniqueItems);
         
         // Build header
         allUniqueItems.forEach(item => summaryReportTableHead.innerHTML += `<th>${item}</th>`);
         summaryReportTableHead.innerHTML += `<th class="is-numeric">Total VAT</th>`;
 
+        if (!reportData || reportData.length === 0) {
+            // If no data, still show all dates with empty values
+            allDatesInMonth.forEach(date => {
+                let rowHtml = `<td>${new Date(date + 'T00:00:00').toLocaleDateString()}</td>`;
+                allUniqueItems.forEach(() => {
+                    rowHtml += `<td class="is-numeric">0.00</td>`;
+                });
+                rowHtml += `<td class="is-numeric">0.00</td>`; // Empty total VAT
+                summaryReportTableBody.innerHTML += `<tr>${rowHtml}</tr>`;
+            });
+            return;
+        }
+
+        currentReportData = reportData;
+        
         // Group data by date
         const groupedByDate = currentReportData.reduce((acc, record) => {
-            const date = record.purchase_date;
+            const date = record.purchase_date; // This is already aliased to posted_date from server
             if (!acc[date]) {
                 acc[date] = { items: {}, dailyTotalVat: 0 };
             }
@@ -477,17 +511,24 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        // Build all rows
-        Object.keys(groupedByDate).sort().forEach(date => {
+        // Build all rows, iterating through all dates in the month
+        allDatesInMonth.forEach(date => {
             const dateData = groupedByDate[date];
-            let rowHtml = `<td>${new Date(date).toLocaleDateString()}</td>`;
-            
-            allUniqueItems.forEach(item => {
-                const baseTotal = dateData.items[item] || 0;
-                rowHtml += `<td class="is-numeric">${baseTotal.toFixed(2)}</td>`;
-            });
+            let rowHtml = `<td>${new Date(date + 'T00:00:00').toLocaleDateString()}</td>`; // Fix day offset
 
-            rowHtml += `<td class="is-numeric">${dateData.dailyTotalVat.toFixed(2)}</td>`;
+            if (dateData) {
+                allUniqueItems.forEach(item => {
+                    const baseTotal = dateData.items[item] || 0;
+                    rowHtml += `<td class="is-numeric">${baseTotal.toFixed(2)}</td>`;
+                });
+                rowHtml += `<td class="is-numeric">${dateData.dailyTotalVat.toFixed(2)}</td>`;
+            } else {
+                // No data for this date, render empty cells
+                allUniqueItems.forEach(() => {
+                    rowHtml += `<td class="is-numeric">0.00</td>`;
+                });
+                rowHtml += `<td class="is-numeric">0.00</td>`; // Empty total VAT
+            }
             summaryReportTableBody.innerHTML += `<tr>${rowHtml}</tr>`;
         });
     }

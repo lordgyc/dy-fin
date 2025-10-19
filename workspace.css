@@ -1,16 +1,16 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
 
 :root {
-  --bg: #f8fafc;
-  --bg-soft: #f1f5f9;
-  --border: #e2e8f0;
-  --text: #0f172a;
-  --text-muted: #64748b;
-  --primary: #6d28d9;
-  --primary-light: #ede9fe;
-  --danger: #dc2626;
+  --bg: #eef2ff; /* A very light indigo for more contrast */
+  --bg-soft: #ffffff; /* Cards will be white */
+  --border: #d1d5db; /* A slightly darker border for better contrast */
+  --text: #1f2937;
+  --text-muted: #6b7280;
+  --primary: #4f46e5; /* A more modern purple */
+  --primary-light: #e0e7ff;
+  --danger: #ef4444;
   --danger-light: #fee2e2;
-  --success: #16a34a;
+  --success: #22c55e;
   --success-light: #dcfce7;
   --warning: #f59e0b;
   --warning-light: #fef3c7;
@@ -112,16 +112,78 @@ body {
 .btn-danger { color: var(--danger); }
 .btn-danger:hover { background-color: var(--danger-light); color: var(--danger); }
 
-/* 5. Card */
-.card {
-  border: 1px solid var(--border);
-  background: white;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 4px 10px rgba(15, 23, 42, .05);
+/* 5. Purchase Group Component Styles */
+.purchase-groups-container {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    padding-bottom: 100px; /* Space for the summary footer */
 }
-.card-header { display: none; }
-.card-body { padding: 0; }
+
+.purchase-group-card {
+    border: 1px solid var(--border);
+    background: var(--bg-soft); /* Use new variable */
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px -1px rgba(0, 0, 0, 0.1);
+    transition: box-shadow 200ms ease-in-out;
+}
+.purchase-group-card:hover {
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .08);
+}
+
+.purchase-group-card .card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background-color: #f9fafb; /* A very light grey for headers */
+    border-bottom: 1px solid var(--border);
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.purchase-group-card .card-header .header-info {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-shrink: 0;
+}
+
+.component-summary {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    margin: 0 auto; /* Center the summary */
+}
+.component-summary .summary-item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.3rem;
+}
+.component-summary strong {
+    color: var(--text);
+    font-weight: 600;
+    min-width: 50px;
+    text-align: right;
+}
+
+.purchase-group-card .card-header .header-actions {
+    display: flex;
+    gap: 0.25rem;
+}
+
+.posted-label {
+    font-weight: 600;
+    color: var(--success);
+    font-size: 0.9rem;
+}
+
+.purchase-group-card .card-header strong {
+    color: var(--text);
+    font-weight: 600;
+}
 
 /* 6. Table Styles */
 .table-wrapper {
@@ -136,10 +198,14 @@ body {
 .table th, .table td {
   padding: 0.75rem 0.75rem; 
   border-bottom: 1px solid var(--border);
+  border-right: 1px solid var(--border); /* Add column separator */
   white-space: nowrap;
   vertical-align: middle;
   position: relative;
   transition: background-color 150ms ease-out; 
+}
+.table th:last-child, .table td:last-child {
+    border-right: none; /* Remove border from last column */
 }
 .table thead th {
   position: sticky;
@@ -154,30 +220,15 @@ body {
   z-index: 10;
 }
 .table tbody tr:nth-child(even) td {
-    background-color: var(--bg-soft);
+    /* background-color: #f9fafb; */ /* Soften the alternating color or remove if lines are enough */
 }
 
 .table tbody tr:hover td {
     background-color: var(--primary-light);
 }
 .table tbody tr:hover td:first-child {
-    box-shadow: inset 3px 0 0 var(--primary);
+    box-shadow: none;
 }
-
-
-.table .sticky-col {
-  position: sticky;
-  left: 0;
-  z-index: 20;
-  background-color: white;
-}
-
-.table tbody tr:nth-child(even) .sticky-col {
-    background-color: var(--bg-soft);
-}
-.table tbody tr:hover .sticky-col { background-color: var(--primary-light); }
-thead .sticky-col { background-color: #f9fafb; z-index: 30; }
-tfoot .sticky-col { background-color: #f1f5f9; z-index: 30; } 
 
 .table tfoot td {
   position: sticky;
@@ -203,15 +254,19 @@ tfoot .sticky-col { background-color: #f1f5f9; z-index: 30; }
     background-color: var(--primary-light);
 }
 .table tbody tr.sub-row:hover td:first-child {
-    box-shadow: none; 
+    box-shadow: none;
 }
 
-.sub-row td:nth-child(7) {
+.sub-row-actions {
+    vertical-align: middle;
+}
+
+.sub-row td:nth-child(5) {
     padding-left: 2rem;
     position: relative;
 }
 
-.sub-row td:nth-child(7)::before {
+.sub-row td:nth-child(5)::before {
     content: '↳';
     position: absolute;
     left: 0.75rem;
@@ -228,23 +283,22 @@ tfoot .sticky-col { background-color: #f1f5f9; z-index: 30; }
 }
 
 /* Column-specific widths and responsiveness */
-.table th:nth-child(1), .table td:nth-child(1) { min-width: 90px; }
-.table th:nth-child(3), .table td:nth-child(3),
-.table th:nth-child(4), .table td:nth-child(4),
-.table th:nth-child(6), .table td:nth-child(6) { min-width: 130px; }
-.table th:nth-child(5), .table td:nth-child(5) { min-width: 180px; }
-.table th:nth-child(11), .table td:nth-child(11) { min-width: 100px; }
-.table th:nth-child(12), .table td:nth-child(12) { min-width: 70px; }
+.table th:nth-child(1), .table td:nth-child(1) { min-width: 180px; } /* Vendor */
+.table th:nth-child(2), .table td:nth-child(2) { min-width: 130px; } /* MRC */
+.table th:nth-child(3), .table td:nth-child(3) { min-width: 140px; } /* Date */
+.table th:nth-child(4), .table td:nth-child(4) { min-width: 130px; } /* FS */
+.table th:nth-child(5), .table td:nth-child(5) { min-width: 220px; } /* Item */
+.table th:nth-child(6), .table td:nth-child(6) { min-width: 80px; }  /* Unit */
 
-.table th:nth-child(2), .table td:nth-child(2),
-.table th:nth-child(7), .table td:nth-child(7),
-.table th:nth-child(8), .table td:nth-child(8) {
-    white-space: normal;
+.tin-display {
+    font-size: 0.8em;
+    color: var(--text-muted);
+    margin-top: 4px;
 }
 
-.table th:nth-child(2), .table td:nth-child(2) { min-width: 160px; }
-.table th:nth-child(7), .table td:nth-child(7) { min-width: 220px; }
-.table th:nth-child(8), .table td:nth-child(8) { min-width: 150px; }
+.table .vat-percentage-cell {
+    display: none;
+}
 
 
 /* 7. Form Elements within Table */
@@ -294,17 +348,14 @@ tfoot .sticky-col { background-color: #f1f5f9; z-index: 30; }
 
 /* 8. Autocomplete Dropdown */
 .autocomplete-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
+  position: absolute; /* Position is managed by JS */
   background-color: white;
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 8px 16px rgba(15, 23, 42, .1);
   max-height: 200px;
   overflow-y: auto;
-  z-index: 110;
+  z-index: 9999; /* Ensure it's on top of everything */
   display: none;
 }
 .autocomplete-item {
@@ -436,4 +487,64 @@ tfoot .sticky-col { background-color: #f1f5f9; z-index: 30; }
 #cancel-btn {
     background-color: #6c757d; /* A neutral gray */
     color: white;
+}
+
+/* 11. Summary Footer */
+.summary-footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: #f8fafc; /* A slightly off-white background */
+    border-top: 1px solid var(--border);
+    padding: 0.75rem 1.5rem;
+    z-index: 100;
+    box-shadow: 0 -3px 12px rgba(0, 0, 0, 0.08); /* More pronounced shadow */
+}
+.summary-content {
+    max-width: 1600px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.summary-label {
+    font-size: 1.1rem;
+    color: var(--text);
+}
+.summary-totals {
+    display: flex;
+    gap: 1.5rem;
+    align-items: baseline;
+}
+.summary-item {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+.summary-item .is-numeric {
+    min-width: 80px;
+    text-align: right;
+}
+.summary-grand-total {
+    font-size: 1.1rem;
+    color: var(--text);
+}
+.summary-grand-total strong {
+    font-size: 1.2rem;
+}
+
+/* 12. Loading/Info Messages */
+.loading-indicator, .error-message, .info-message {
+    padding: 2rem;
+    text-align: center;
+    font-size: 1rem;
+    color: var(--text-muted);
+    background: white;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+}
+.error-message {
+    color: var(--danger);
 }
