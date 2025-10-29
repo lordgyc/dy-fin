@@ -279,6 +279,41 @@ body {
 .table th:nth-child(5), .table td:nth-child(5) { min-width: 220px; } /* Item */
 .table th:nth-child(6), .table td:nth-child(6) { min-width: 80px; }  /* Unit */
 
+/* FS Number Input Container */
+.fs-input-container {
+    display: flex;
+    align-items: center;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    transition: all 150ms ease-in-out;
+    width: 100%;
+}
+
+.fs-input-container:hover {
+    border-color: #cbd5e1;
+}
+
+.fs-input-container:focus-within {
+    border-color: var(--primary);
+    background-color: white;
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.fs-prefix {
+    padding: 0.4rem 0.25rem 0.4rem 0.5rem;
+    font-size: 13px;
+    color: var(--text-muted);
+    background-color: transparent;
+    white-space: nowrap;
+}
+
+.fs-input-container .fs-number-input {
+    border: none !important;
+    padding-left: 0 !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+}
+
 .tin-display {
     font-size: 0.8em;
     color: var(--text-muted);

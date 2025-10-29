@@ -74,15 +74,21 @@
             </div>
             <div class="card">
                 <div class="table-wrapper">
-                    <table class="table" id="jv-report-table">
+            <table class="table" id="jv-report-table">
                         <thead>
                             <tr>
-                                <th>Items</th>
-                                <th class="is-numeric">Debt</th>
-                                <th class="is-numeric">Credit</th>
+                                <th rowspan="2">Items</th>
+                                <th colspan="2" class="is-numeric">Debt</th>
+                                <th colspan="2" class="is-numeric">Credit</th>
+                            </tr>
+                            <tr>
+                                <th class="is-numeric">Birr</th>
+                                <th class="is-numeric">Cents</th>
+                                <th class="is-numeric">Birr</th>
+                                <th class="is-numeric">Cents</th>
                             </tr>
                         </thead>
-                        <tbody><tr><td colspan="3" class="placeholder-cell">Generate a report to see data.</td></tr></tbody>
+                        <tbody><tr><td colspan="5" class="placeholder-cell">Generate a report to see data.</td></tr></tbody>
                         <tfoot></tfoot>
                     </table>
                 </div>

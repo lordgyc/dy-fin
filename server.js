@@ -6,10 +6,19 @@ const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid'); // Import uuid
 const { sendLogToTelegram, fetchLogsFromTelegram } = require('./telegramBot'); // Import Telegram bot functions
 const puppeteer = require('puppeteer');
+const fs = require('fs'); // Import the file system module
 
 module.exports = (userDataPath) => {
   const app = express();
   const port = 3000;
+
+  // Read report.css content once when the server starts
+  let reportCssContent = '';
+  try {
+      reportCssContent = fs.readFileSync(path.join(__dirname, 'report.css'), 'utf8');
+  } catch (error) {
+      console.error('Error reading report.css:', error.message);
+  }
 
   app.use(cors());
   app.use(express.json());
@@ -1544,46 +1553,70 @@ app.get('/reports/summary', (req, res) => {
         const details = await new Promise((resolve, reject) => db.all(detailsSql, [singledate], (err, rows) => err ? reject(err) : resolve(rows)));
         const totals = await new Promise((resolve, reject) => db.get(totalsSql, [singledate], (err, row) => err ? reject(err) : resolve(row)));
 
-        // Generate HTML content for the PDF
+        // --- REPLICATE UI LOGIC FOR PDF ---
+        const totalVatSum = totals.total_vat || 0;
+        const cashTotalSum = totals.grand_total || 0;
+        const totalVatBirr = Math.floor(totalVatSum);
+        const totalVatCents = Math.round((totalVatSum - totalVatBirr) * 100);
+        const cashTotalBirr = Math.floor(cashTotalSum);
+        const cashTotalCents = Math.round((cashTotalSum - cashTotalBirr) * 100);
+
+        // Generate HTML content for the PDF, mirroring the UI
         const content = `
             <!DOCTYPE html>
             <html>
             <head>
-                <style>
-                    body { font-family: sans-serif; margin: 40px; }
-                    h1 { font-size: 18px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; font-size: 12px; }
-                    th { background-color: #f2f2f2; text-align: left; }
-                    tfoot td { font-weight: bold; background-color: #f8f8f8; }
-                    .is-numeric { text-align: right; }
-                </style>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>JV Report</title>
+                <style>${reportCssContent}</style> <!-- Inject CSS content directly -->
             </head>
             <body>
-                <h1>Journal Voucher Report for ${singledate}</h1>
-                <table>
+                <h1 class="report-title">Journal Voucher Report for ${singledate}</h1>
+                <table class="table">
                     <thead>
-                        <tr><th>Items</th><th class="is-numeric">Debt</th><th class="is-numeric">Credit</th></tr>
+                        <tr>
+                            <th rowspan="2">Items</th>
+                            <th colspan="2" class="is-numeric">Debt</th>
+                            <th colspan="2" class="is-numeric">Credit</th>
+                        </tr>
+                        <tr>
+                            <th class="is-numeric">Birr</th>
+                            <th class="is-numeric">Cents</th>
+                            <th class="is-numeric">Birr</th>
+                            <th class="is-numeric">Cents</th>
+                        </tr>
                     </thead>
                     <tbody>
-                        ${details.map(record => `
-                            <tr>
-                                <td>${record.item_name}</td>
-                                <td class="is-numeric">${Math.round(record.base_total || 0)}</td>
-                                <td class="is-numeric"></td>
-                            </tr>
-                        `).join('')}
+                        ${details.map(record => {
+                            const baseTotal = record.base_total || 0;
+                            const birr = Math.floor(baseTotal);
+                            const cents = Math.round((baseTotal - birr) * 100);
+                            return `
+                                <tr>
+                                    <td>${record.item_name}</td>
+                                    <td class="is-numeric">${birr}</td>
+                                    <td class="is-numeric">${cents}</td>
+                                    <td class="is-numeric"></td>
+                                    <td class="is-numeric"></td>
+                                </tr>
+                            `;
+                        }).join('')}
                     </tbody>
                     <tfoot>
                         <tr>
                             <td><strong>Total VAT</strong></td>
-                            <td class="is-numeric"><strong>${Math.round(totals.total_vat || 0)}</strong></td>
+                            <td class="is-numeric"><strong>${totalVatBirr}</strong></td>
+                            <td class="is-numeric"><strong>${totalVatCents}</strong></td>
+                            <td class="is-numeric"></td>
                             <td class="is-numeric"></td>
                         </tr>
                         <tr>
                             <td><strong>Cash</strong></td>
                             <td class="is-numeric"></td>
-                            <td class="is-numeric"><strong>${Math.round(totals.grand_total || 0)}</strong></td>
+                            <td class="is-numeric"></td>
+                            <td class="is-numeric"><strong>${cashTotalBirr}</strong></td>
+                            <td class="is-numeric"><strong>${cashTotalCents}</strong></td>
                         </tr>
                     </tfoot>
                 </table>
@@ -1613,10 +1646,23 @@ app.get('/reports/summary', (req, res) => {
 
 // *** NEW ENDPOINT: Summary Report to PDF (Server-Side) ***
 app.get('/export/summary-pdf', async (req, res) => {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, etYear, etMonth } = req.query;
     if (!startDate || !endDate) {
         return res.status(400).json({ error: 'Start date and end date are required.' });
     }
+
+    const getEthiopianMonthName = (monthNumber) => {
+        const monthNames = [
+            "Meskerem", "Tikimt", "Hidar", "Tahsas", "Tir", "Yekatit",
+            "Megabit", "Miyazya", "Ginbot", "Sene", "Hamle", "Nehase", "Pagume"
+        ];
+        return monthNames[monthNumber - 1] || '';
+    };
+
+    const reportTitle = etYear && etMonth
+        ? `Summary Report for ${getEthiopianMonthName(etMonth)} ${etYear}`
+        : `Summary Report (${startDate} to ${endDate})`;
+
 
     let browser;
     try {
@@ -1653,94 +1699,81 @@ app.get('/export/summary-pdf', async (req, res) => {
             return acc;
         }, {});
 
-        // Generate all dates in the range
+        const columnTotals = { totalVat: 0 };
+        allUniqueItems.forEach(item => columnTotals[item] = 0);
+        reportData.forEach(record => {
+            columnTotals[record.item_name] += record.base_total;
+            columnTotals.totalVat += record.total_vat;
+        });
+
         const allDatesInMonth = [];
-        let currentDate = new Date(startDate + 'T00:00:00'); // Ensure UTC interpretation
+        let currentDate = new Date(startDate + 'T00:00:00');
         const lastDate = new Date(endDate + 'T00:00:00');
-
-        // Helper to format date to YYYY-MM-DD
         const formatDate = (date) => date.toISOString().split('T')[0];
-
         while (currentDate <= lastDate) {
             allDatesInMonth.push(formatDate(currentDate));
             currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        const fixedColumns = ['Date']; // Fixed column for the first page
-        const totalVatColumn = 'Total VAT'; // Fixed column for the last page
-        const maxDynamicColumnsPerPage = 5; // Max 5 dynamic item columns per page
+        const fixedColumns = ['Date'];
+        const totalVatColumn = 'Total VAT';
+        const allDataColumns = [...allUniqueItems, totalVatColumn];
+        const maxColumnsPerPage = 6;
+        const maxDataColumnsPerPage = maxColumnsPerPage - fixedColumns.length;
 
         let allContent = `
             <!DOCTYPE html>
             <html>
             <head>
-                <style>
-                    body { font-family: sans-serif; margin: 40px; }
-                    h1 { font-size: 16px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ccc; padding: 6px; font-size: 9px; text-align: left; }
-                    thead th { background-color: #333; color: white; position: sticky; top: 0; }
-                    .is-numeric { text-align: right; }
-                    .page-break { page-break-after: always; }
-                </style>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Summary Report</title>
+                <style>${reportCssContent}</style> <!-- Inject CSS content directly -->
             </head>
             <body>
-                <h1>Summary Report (${startDate} to ${endDate})</h1>
+                <h1 class="report-title">DY-FINANCE</h1>
+                <h2 class="report-subtitle">${reportTitle}</h2>
         `;
 
-        // Chunk dynamic columns
-        for (let i = 0; i < allUniqueItems.length; i += maxDynamicColumnsPerPage) {
-            const currentChunkItems = allUniqueItems.slice(i, i + maxDynamicColumnsPerPage);
-            const isFirstChunk = i === 0;
-            const isLastChunk = (i + maxDynamicColumnsPerPage) >= allUniqueItems.length;
+        for (let i = 0; i < allDataColumns.length; i += maxDataColumnsPerPage) {
+            const currentChunkColumns = allDataColumns.slice(i, i + maxDataColumnsPerPage);
+            const isLastPage = (i + maxDataColumnsPerPage) >= allDataColumns.length;
 
-            let tableHeaders = '';
+            let tableHeaders = `<th>${fixedColumns[0]}</th>` + currentChunkColumns.map(colName => `<th class="${colName === totalVatColumn ? 'is-numeric' : ''}">${colName}</th>`).join('');
+
             let tableBodyRows = '';
-
-            // Headers
-            if (isFirstChunk) {
-                tableHeaders += `<th>${fixedColumns[0]}</th>`; // Add 'Date' header only on first page
-            } else {
-                tableHeaders += `<th>${fixedColumns[0]}</th>`; // Add 'Date' header on subsequent pages too
-            }
-            tableHeaders += currentChunkItems.map(item => `<th>${item}</th>`).join('');
-            if (isLastChunk) {
-                tableHeaders += `<th class="is-numeric">${totalVatColumn}</th>`; // Add 'Total VAT' header only on last page
-            }
-
-            // Rows
             allDatesInMonth.forEach(date => {
                 const dateData = groupedByDate[date];
                 let rowHtml = `<td>${new Date(date + 'T00:00:00').toLocaleDateString()}</td>`;
-
-                if (dateData) {
-                    currentChunkItems.forEach(item => {
-                        const baseTotal = dateData.items[item] || 0;
-                        rowHtml += `<td class="is-numeric">${baseTotal.toFixed(2)}</td>`;
-                    });
-                    if (isLastChunk) {
-                        rowHtml += `<td class="is-numeric">${dateData.dailyTotalVat.toFixed(2)}</td>`;
+                currentChunkColumns.forEach(colName => {
+                    if (colName === totalVatColumn) {
+                        const dailyVat = dateData ? (dateData.dailyTotalVat || 0) : 0;
+                        rowHtml += `<td class="is-numeric">${dailyVat > 0 ? dailyVat.toFixed(2) : '-'}</td>`;
+                    } else {
+                        const baseTotal = dateData ? (dateData.items[colName] || 0) : 0;
+                        rowHtml += `<td class="is-numeric">${baseTotal > 0 ? baseTotal.toFixed(2) : '-'}</td>`;
                     }
-                } else {
-                    // No data for this date, render empty cells
-                    currentChunkItems.forEach(() => {
-                        rowHtml += `<td class="is-numeric">0.00</td>`;
-                    });
-                    if (isLastChunk) {
-                        rowHtml += `<td class="is-numeric">0.00</td>`; // Empty total VAT
-                    }
-                }
+                });
                 tableBodyRows += `<tr>${rowHtml}</tr>`;
             });
 
+            let footerHtml = `<td><strong>Total</strong></td>`;
+            currentChunkColumns.forEach(colName => {
+                if (colName === totalVatColumn) {
+                    const grandTotalVat = columnTotals.totalVat || 0;
+                    footerHtml += `<td class="is-numeric"><strong>${grandTotalVat > 0 ? grandTotalVat.toFixed(2) : '-'}</strong></td>`;
+                } else {
+                    const total = columnTotals[colName] || 0;
+                    footerHtml += `<td class="is-numeric"><strong>${total > 0 ? total.toFixed(2) : '-'}</strong></td>`;
+                }
+            });
+            const tableFooter = `<tfoot><tr>${footerHtml}</tr></tfoot>`;
+
             allContent += `
-                <table class="${!isLastChunk ? 'page-break' : ''}">
-                    <thead>
-                        <tr>${tableHeaders}</tr>
-                    </thead>
-                    <tbody>
-                        ${tableBodyRows}
-                    </tbody>
+                <table class="${!isLastPage ? 'page-break' : ''}">
+                    <thead><tr>${tableHeaders}</tr></thead>
+                    <tbody>${tableBodyRows}</tbody>
+                    ${tableFooter}
                 </table>
             `;
         }

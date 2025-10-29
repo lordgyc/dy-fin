@@ -73,15 +73,125 @@ body {
 
 /* 6. Table Styles (Copied & adapted from workspace.css) */
 .table-wrapper { overflow-x: auto; max-height: calc(100vh - 250px); }
-.table { width: 100%; border-collapse: separate; border-spacing: 0; }
-.table th, .table td { padding: 0.75rem 1rem; border-bottom: 0.5px solid var(--border); border-left: 0.5px solid var(--border); white-space: nowrap; vertical-align: middle; }
-.table th:first-child, .table td:first-child { border-left: none; } /* Remove left border for the first column */
-.table thead th { position: sticky; top: 0; background: #f9fafb; text-align: right; font-weight: 600; font-size: 12px; text-transform: uppercase; color: var(--text-muted); z-index: 10; }
+.table {
+  width: 100%;
+  border-collapse: collapse; /* Use collapse for cleaner borders */
+  border-spacing: 0;
+  border: 1px solid var(--border); /* Add a border around the entire table */
+}
+
+.table th, .table td {
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border); /* All cells get a border */
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+/* Table Header Styling */
+.table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-soft); /* Lighter background for headers */
+  color: var(--text); /* Darker text for headers */
+  text-align: center; /* Center align headers by default */
+  font-weight: 700; /* Bolder font weight */
+  font-size: 13px; /* Slightly larger font size */
+  text-transform: uppercase;
+  z-index: 10;
+  border-color: var(--border); /* Match header border to background */
+}
 .table thead th:first-child { text-align: left; } /* Keep the first column header left-aligned */
-.table tbody tr:hover { background-color: var(--primary-light); }
-.table tfoot td { position: sticky; bottom: 0; background: var(--bg-soft); border-top: 2px solid var(--border); font-weight: 600; }
+
+/* Table Body Styling */
+.table tbody tr:nth-child(even) {
+  background-color: var(--bg-soft); /* Zebra striping for readability */
+}
+.table tbody tr:hover {
+  background-color: var(--primary-light); /* Highlight on hover */
+}
+
+/* Table Footer Styling */
+.table tfoot td {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg-soft); /* Lighter background for footer */
+  border-top: 2px solid var(--border); /* Stronger border for footer */
+  font-weight: 700; /* Bolder font for totals */
+  color: var(--text); /* Darker text for footer */
+}
+
+/* Numeric alignment */
 .is-numeric { text-align: right; }
+
+/* Placeholder cell for empty reports */
 .placeholder-cell { text-align: center; color: var(--text-muted); padding: 3rem; }
+
+/* Print-specific styles for PDF export */
+@media print {
+  body {
+    background: white;
+    font-size: 10pt; /* Smaller font for print */
+    -webkit-print-color-adjust: exact; /* Ensure background colors are printed */
+    print-color-adjust: exact;
+  }
+
+  .header, .nav, .page-header .controls, .modal, .btn, .tab-button {
+    display: none !important; /* Hide UI elements not relevant for print */
+  }
+
+  .container {
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .page-section {
+    margin-top: 0;
+  }
+
+  .card {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    overflow: visible;
+  }
+
+  .table-wrapper {
+    overflow: visible; /* Allow table to expand fully */
+    max-height: none;
+  }
+
+  .table {
+    border: 1px solid #ccc; /* Lighter border for print */
+  }
+
+  .table th, .table td {
+    padding: 0.5rem 0.75rem; /* Smaller padding for print */
+    border: 1px solid #eee; /* Lighter cell borders */
+  }
+
+  .table thead th {
+    background: #f0f0f0 !important; /* Even lighter header background for print */
+    color: #333 !important;
+    border-color: #ddd !important;
+  }
+
+  .table tbody tr:nth-child(even) {
+    background-color: #f5f5f5 !important; /* Lighter zebra striping for print */
+  }
+
+  .table tfoot td {
+    background: #e0e0e0 !important; /* Even lighter footer background for print */
+    color: #333 !important;
+    border-color: #ddd !important;
+  }
+
+  h1 {
+    font-size: 1.5rem; /* Adjust heading size for print */
+    text-align: center;
+    margin-bottom: 1rem;
+  }
+}
 
 /* 7. NEW: Tab Component */
 .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 1.5rem; }
@@ -151,4 +261,8 @@ body {
 
 .action-cell {
     text-align: right;
+}
+
+#jv-report-table th[rowspan="2"] {
+    vertical-align: middle;
 }

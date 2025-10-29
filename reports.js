@@ -260,10 +260,10 @@ document.addEventListener('DOMContentLoaded', () => {
             row.innerHTML = `
                 <td>${record.vendor_name}</td>
                 <td>${record.tin_number}</td>
-                <td>${record.mrc_number || 'N/A'}</td>
+                <td>${record.mrc_number || ''}</td>
                 <td>${formattedDate}</td>
-                <td>${record.fs_number || 'N/A'}</td>
-                <td>${record.unit || 'N/A'}</td>
+                <td>${record.fs_number || ''}</td>
+                <td>${record.unit || ''}</td>
                 <td>${record.item_name}</td>
                 <td class="is-numeric">${record.quantity}</td>
                 <td class="is-numeric">${(record.unit_price || 0).toFixed(2)}</td>
@@ -312,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-        const url = `http://localhost:3000/export/summary-pdf?startDate=${range.startDate}&endDate=${range.endDate}`;
+        const url = `http://localhost:3000/export/summary-pdf?startDate=${range.startDate}&endDate=${range.endDate}&etYear=${etYear}&etMonth=${etMonth}`;
         const response = await fetch(url);
 
         if (!response.ok) {
@@ -398,16 +398,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const { details, totals } = data;
 
         if (!details || details.length === 0) {
-            jvReportTableBody.innerHTML = '<tr><td colspan="3" class="placeholder-cell">No data for the selected date.</td></tr>';
+            jvReportTableBody.innerHTML = '<tr><td colspan="5" class="placeholder-cell">No data for the selected date.</td></tr>';
             return;
         }
 
         details.forEach(record => {
             const baseTotal = record.base_total || 0;
+            const birr = Math.floor(baseTotal);
+            const cents = Math.round((baseTotal - birr) * 100);
             jvReportTableBody.innerHTML += `
                 <tr>
                     <td>${record.item_name}</td>
-                    <td class="is-numeric">${Math.round(baseTotal)}</td>
+                    <td class="is-numeric">${birr}</td>
+                    <td class="is-numeric">${cents}</td>
+                    <td class="is-numeric"></td>
                     <td class="is-numeric"></td>
                 </tr>
             `;
@@ -416,16 +420,26 @@ document.addEventListener('DOMContentLoaded', () => {
         const totalVatSum = totals.total_vat || 0;
         const cashTotalSum = totals.grand_total || 0;
         
+        const totalVatBirr = Math.floor(totalVatSum);
+        const totalVatCents = Math.round((totalVatSum - totalVatBirr) * 100);
+
+        const cashTotalBirr = Math.floor(cashTotalSum);
+        const cashTotalCents = Math.round((cashTotalSum - cashTotalBirr) * 100);
+
         jvReportTableFoot.innerHTML = `
             <tr>
                 <td><strong>Total VAT</strong></td>
-                <td class="is-numeric"><strong>${Math.round(totalVatSum)}</strong></td>
+                <td class="is-numeric"><strong>${totalVatBirr}</strong></td>
+                <td class="is-numeric"><strong>${totalVatCents}</strong></td>
+                <td class="is-numeric"></td>
                 <td class="is-numeric"></td>
             </tr>
             <tr>
                 <td><strong>Cash</strong></td>
                 <td class="is-numeric"></td>
-                <td class="is-numeric"><strong>${Math.round(cashTotalSum)}</strong></td>
+                <td class="is-numeric"></td>
+                <td class="is-numeric"><strong>${cashTotalBirr}</strong></td>
+                <td class="is-numeric"><strong>${cashTotalCents}</strong></td>
             </tr>
         `;
     }
@@ -456,16 +470,21 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function renderSummaryReport(reportData, startDate, endDate) {
-        console.log('renderSummaryReport called with:', { reportData, startDate, endDate });
         summaryReportTableHead.innerHTML = '<th>Date</th>';
         summaryReportTableBody.innerHTML = '';
+        const summaryReportTable = document.getElementById('summary-report-table');
+        let summaryReportTableFoot = summaryReportTable.querySelector('tfoot');
+        if (summaryReportTableFoot) {
+            summaryReportTableFoot.innerHTML = '';
+        } else {
+            summaryReportTableFoot = document.createElement('tfoot');
+            summaryReportTable.appendChild(summaryReportTableFoot);
+        }
 
-        // Helper to format date to YYYY-MM-DD
         const formatDate = (date) => date.toISOString().split('T')[0];
 
-        // Generate all dates in the range
         const allDatesInMonth = [];
-        let currentDate = new Date(startDate + 'T00:00:00'); // Ensure UTC interpretation
+        let currentDate = new Date(startDate + 'T00:00:00');
         const lastDate = new Date(endDate + 'T00:00:00');
 
         while (currentDate <= lastDate) {
@@ -473,33 +492,36 @@ document.addEventListener('DOMContentLoaded', () => {
             currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // Extract unique item_names (subcategories) from the report data
         const uniqueItems = [...new Set(reportData.map(record => record.item_name))];
         allUniqueItems = uniqueItems.sort();
-        console.log('allUniqueItems for header:', allUniqueItems);
         
-        // Build header
         allUniqueItems.forEach(item => summaryReportTableHead.innerHTML += `<th>${item}</th>`);
         summaryReportTableHead.innerHTML += `<th class="is-numeric">Total VAT</th>`;
 
+        const columnTotals = { totalVat: 0 };
+        allUniqueItems.forEach(item => columnTotals[item] = 0);
+
         if (!reportData || reportData.length === 0) {
-            // If no data, still show all dates with empty values
             allDatesInMonth.forEach(date => {
                 let rowHtml = `<td>${new Date(date + 'T00:00:00').toLocaleDateString()}</td>`;
                 allUniqueItems.forEach(() => {
-                    rowHtml += `<td class="is-numeric">0.00</td>`;
+                    rowHtml += `<td class="is-numeric">-</td>`;
                 });
-                rowHtml += `<td class="is-numeric">0.00</td>`; // Empty total VAT
+                rowHtml += `<td class="is-numeric">-</td>`;
                 summaryReportTableBody.innerHTML += `<tr>${rowHtml}</tr>`;
             });
+            // Render footer with zeros/dashes even if there's no data
+            let footerHtml = `<td><strong>Total</strong></td>`;
+            allUniqueItems.forEach(() => footerHtml += `<td class="is-numeric"><strong>-</strong></td>`);
+            footerHtml += `<td class="is-numeric"><strong>-</strong></td>`;
+            summaryReportTableFoot.innerHTML = `<tr>${footerHtml}</tr>`;
             return;
         }
 
         currentReportData = reportData;
         
-        // Group data by date
         const groupedByDate = currentReportData.reduce((acc, record) => {
-            const date = record.purchase_date; // This is already aliased to posted_date from server
+            const date = record.purchase_date;
             if (!acc[date]) {
                 acc[date] = { items: {}, dailyTotalVat: 0 };
             }
@@ -508,26 +530,36 @@ document.addEventListener('DOMContentLoaded', () => {
             return acc;
         }, {});
 
-        // Build all rows, iterating through all dates in the month
         allDatesInMonth.forEach(date => {
             const dateData = groupedByDate[date];
-            let rowHtml = `<td>${new Date(date + 'T00:00:00').toLocaleDateString()}</td>`; // Fix day offset
+            let rowHtml = `<td>${new Date(date + 'T00:00:00').toLocaleDateString()}</td>`;
 
             if (dateData) {
                 allUniqueItems.forEach(item => {
                     const baseTotal = dateData.items[item] || 0;
-                    rowHtml += `<td class="is-numeric">${baseTotal.toFixed(2)}</td>`;
+                    columnTotals[item] += baseTotal;
+                    rowHtml += `<td class="is-numeric">${baseTotal > 0 ? baseTotal.toFixed(2) : '-'}</td>`;
                 });
-                rowHtml += `<td class="is-numeric">${dateData.dailyTotalVat.toFixed(2)}</td>`;
+                columnTotals.totalVat += dateData.dailyTotalVat;
+                rowHtml += `<td class="is-numeric">${dateData.dailyTotalVat > 0 ? dateData.dailyTotalVat.toFixed(2) : '-'}</td>`;
             } else {
-                // No data for this date, render empty cells
                 allUniqueItems.forEach(() => {
-                    rowHtml += `<td class="is-numeric">0.00</td>`;
+                    rowHtml += `<td class="is-numeric">-</td>`;
                 });
-                rowHtml += `<td class="is-numeric">0.00</td>`; // Empty total VAT
+                rowHtml += `<td class="is-numeric">-</td>`;
             }
             summaryReportTableBody.innerHTML += `<tr>${rowHtml}</tr>`;
         });
+
+        // Build and render the footer row
+        let footerHtml = `<td><strong>Total</strong></td>`;
+        allUniqueItems.forEach(item => {
+            const total = columnTotals[item];
+            footerHtml += `<td class="is-numeric"><strong>${total > 0 ? total.toFixed(2) : '-'}</strong></td>`;
+        });
+        const grandTotalVat = columnTotals.totalVat;
+        footerHtml += `<td class="is-numeric"><strong>${grandTotalVat > 0 ? grandTotalVat.toFixed(2) : '-'}</strong></td>`;
+        summaryReportTableFoot.innerHTML = `<tr>${footerHtml}</tr>`;
     }
 
     generateSummaryReportBtn?.addEventListener('click', async () => {

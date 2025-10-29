@@ -131,13 +131,34 @@ document.addEventListener('DOMContentLoaded', () => {
         const disabledClass = isEditable ? '' : 'disabled-input';
         const tinNumber = data.tin_number || '';
         const mrcNumber = data.mrc_number || 'N/A'; // *** MODIFICATION: Default MRC value
+        
+        const fsNumber = data.fs_number || '';
+        let fsPrefix = 'M';
+        let fsNumberValue = fsNumber;
+
+        if (fsNumber.startsWith('FS-')) {
+            fsPrefix = 'FS';
+            fsNumberValue = fsNumber.substring(3);
+        } else if (fsNumber.startsWith('M-')) {
+            fsPrefix = 'M';
+            fsNumberValue = fsNumber.substring(2);
+        } else if (fsNumber.startsWith('FS')) {
+            fsPrefix = 'FS';
+            fsNumberValue = fsNumber.substring(2);
+        } else if (fsNumber.startsWith('M')) {
+            fsPrefix = 'M';
+            fsNumberValue = fsNumber.substring(1);
+        } else if (mrcNumber && mrcNumber !== 'N/A') {
+            fsPrefix = 'FS';
+        }
+
         const quantity = parseFloat(data.quantity) || 0;
         const unitPrice = parseFloat(data.unit_price) || 0;
         const vatPercentage = (data.vat_percentage !== undefined && data.vat_percentage > 0) ? data.vat_percentage : 15;
         const baseTotal = quantity * unitPrice;
         const calculatedVatAmount = vatOnChecked ? (baseTotal * (vatPercentage / 100)) : 0;
         const subtotal = baseTotal + calculatedVatAmount;
-
+        
         // Date handling fix to avoid timezone issues
         const purchaseDate = data.purchase_date ? data.purchase_date.split('T')[0] : new Date().toISOString().split('T')[0];
 
@@ -151,7 +172,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><input type="date" class="purchase-date-input input ${disabledClass}" value="${purchaseDate}" ${disabledAttr}></td>
                 <td>
                     <div style="display: flex; align-items: center; gap: 4px;">
-                        <input type="text" class="fs-number-input input ${disabledClass}" value="${data.fs_number || ''}" ${disabledAttr}>
+                        <div class="fs-input-container">
+                            <span class="fs-prefix">${fsPrefix}</span>
+                            <input type="text" class="fs-number-input input ${disabledClass}" value="${fsNumberValue}" ${disabledAttr}>
+                        </div>
                         <button class="add-items-btn btn btn-icon" title="Add Sub-Item (Ctrl+I)" style="padding: 4px; min-width: 24px; height: 24px;" ${disabledAttr}><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg></button>
                     </div>
                 </td>
@@ -317,6 +341,16 @@ document.addEventListener('DOMContentLoaded', () => {
         summaryVatExclude.textContent = totalBaseAmount.toFixed(2);
         summaryTotalVat.textContent = totalVatAmount.toFixed(2);
         summarySubtotal.innerHTML = `<strong>${finalSubtotal.toFixed(2)}</strong>`;
+    };
+
+    const updateFsPrefix = (rowElement) => {
+        const mrcInput = rowElement.querySelector('.mrc-no-input');
+        const fsPrefixSpan = rowElement.querySelector('.fs-prefix');
+        
+        if (!mrcInput || !fsPrefixSpan) return;
+
+        const hasMrc = mrcInput.value && mrcInput.value !== 'N/A';
+        fsPrefixSpan.textContent = hasMrc ? 'FS' : 'M';
     };
 
     const attachRowEventListeners = (rowElement, isEditable = true) => {
@@ -495,6 +529,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const mrcNumbers = selectedItem.mrc_numbers || [];
                 mrcInput.dataset.mrcNumbers = JSON.stringify(mrcNumbers);
                 mrcInput.value = mrcNumbers[0] || 'N/A';
+                
+                updateFsPrefix(rowElement);
+                rowElement.querySelector('.fs-number-input').value = '';
+
                 if (moveFocus) {
                     mrcInput.focus();
                 }
@@ -596,6 +634,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     item.addEventListener('click', () => {
                         mrcInput.value = mrc;
                         dropdown.style.display = 'none';
+                        const rowElement = mrcInput.closest('tr');
+                        updateFsPrefix(rowElement);
+                        const fsInput = rowElement.querySelector('.fs-number-input');
+                        fsInput.value = '';
+                        fsInput.focus();
                     });
                     dropdown.appendChild(item);
                 });
@@ -645,7 +688,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const mrcNo = rowElement.querySelector('.mrc-no-input')?.value;
         const tinNo = vendorNameInput?.getAttribute('data-tin-number');
         const purchaseDate = rowElement.querySelector('.purchase-date-input')?.value;
-        const fsNumber = rowElement.querySelector('.fs-number-input')?.value;
+        
+        const fsNumberRaw = rowElement.querySelector('.fs-number-input')?.value;
+        const fsPrefix = rowElement.querySelector('.fs-prefix')?.textContent || '';
+        const fsNumber = fsNumberRaw ? `${fsPrefix}${fsNumberRaw}` : '';
+
         const status = 'saved';
         const isDateValid = await isDateInCurrentEthiopianMonth(purchaseDate);
 
