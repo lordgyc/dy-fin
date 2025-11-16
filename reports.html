@@ -18,9 +18,18 @@
                 <a id="back-to-login-btn" class="btn btn-ghost" href="./index.html">Back to Login</a>
                 <a id="go-to-workspace-btn" class="btn btn-primary" href="./workspace.html">Go to Workspace</a>
                 <div class="separator"></div>
-                <button id="vat-report-btn" class="btn" data-section="vat-report-section">VAT Report</button>
-                <button id="jv-report-btn" class="btn" data-section="jv-report-section">JV Report</button>
-                <button id="summary-report-btn" class="btn" data-section="summary-report-section">Summary Report</button>
+                <div class="dropdown">
+                    <button id="reports-dropdown-btn" class="btn dropdown-toggle">
+                        Reports
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="dropdown-menu">
+                        <button class="dropdown-item" data-section="vat-report-section">VAT Report</button>
+                        <button class="dropdown-item" data-section="jv-report-section">JV Report</button>
+                        <button class="dropdown-item" data-section="summary-report-section">Summary Report</button>
+                        <button class="dropdown-item" data-section="yearly-report-section">Yearly Report</button>
+                    </div>
+                </div>
                 <button id="management-button" class="btn" data-section="management-section">Management</button>
             </nav>
         </div>
@@ -139,7 +148,53 @@
             </div>
         </section>
 
-   
+        <!-- Yearly Report Section -->
+        <section id="yearly-report-section" class="page-section" style="display: none;">
+            <div class="page-header">
+                <h1>Yearly Report</h1>
+                <div class="controls">
+                    <select id="yearly-subcategory-select" class="input" title="Select Subcategory">
+                        <option value="">Select Subcategory</option>
+                    </select>
+                    <input type="number" id="yearly-ethiopian-year-input" class="input" title="Enter Ethiopian Year" placeholder="Enter Year (E.C.)">
+                    <button id="generate-yearly-report-btn" class="btn btn-primary">Generate</button>
+                    <button id="export-yearly-report-btn" class="btn btn-primary">Export to Excel</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table" id="yearly-report-table">
+                        <thead>
+                            <tr>
+                                <th>Vendor Name</th>
+                                <th>TIN No</th>
+                                <th>MRC No</th>
+                                <th>Purchase Date</th>
+                                <th>FS Number</th>
+                                <th>Unit</th>
+                                <th>Item Name</th>
+                                <th class="is-numeric">Quantity</th>
+                                <th class="is-numeric">Unit Price</th>
+                                <th class="is-numeric">VAT %</th>
+                                <th class="is-numeric">VAT Amount</th>
+                                <th class="is-numeric">Base Total</th>
+                                <th class="is-numeric">Total Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="13" class="placeholder-cell">Select a subcategory and year to generate report.</td></tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="10"><strong>Total Summary</strong></td>
+                                <td id="yearly-summary-vat-amount" class="is-numeric">0.00</td>
+                                <td id="yearly-summary-base-total" class="is-numeric">0.00</td>
+                                <td id="yearly-summary-total-amount" class="is-numeric"><strong>0.00</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
         </section>
 
         <!-- Management Section -->

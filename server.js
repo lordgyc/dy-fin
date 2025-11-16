@@ -505,6 +505,46 @@ app.get('/vendors', (req, res) => {
         });
     });
 
+    // NOTE: /subcategories/list must come BEFORE /subcategories/:category_id 
+    // to avoid "list" being treated as a category_id parameter
+    app.get('/subcategories/list', (req, res) => {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        res.setHeader('Pragma', 'no-cache');
+        res.setHeader('Expires', '0');
+        console.log('Endpoint /subcategories/list called');
+        
+        // Use the same query pattern as the working /subcategories/:category_id endpoint
+        const sql = `SELECT subcategory_id, subcategory_name, category_id FROM Subcategories ORDER BY subcategory_name`;
+        
+        db.all(sql, [], (err, rows) => {
+            if (err) {
+                console.error('Error fetching subcategories list:', err.message);
+                console.error('SQL Error details:', err);
+                return res.status(500).json({ error: 'Failed to fetch subcategories list.', details: err.message });
+            }
+            
+            console.log(`Subcategories list query returned ${rows ? rows.length : 0} rows`);
+            
+            // Verify we got data
+            if (rows && rows.length > 0) {
+                console.log('Sample subcategory:', rows[0]);
+                console.log('First 3 subcategories:', rows.slice(0, 3));
+            } else {
+                // Check if table actually has data
+                db.get(`SELECT COUNT(*) as count FROM Subcategories`, [], (countErr, countRow) => {
+                    if (!countErr && countRow) {
+                        console.log(`Database reports ${countRow.count} subcategories exist`);
+                        if (countRow.count > 0) {
+                            console.error('WARNING: Database has subcategories but SELECT returned 0 rows!');
+                        }
+                    }
+                });
+            }
+            
+            res.json(rows || []);
+        });
+    });
+
     app.get('/subcategories/:category_id', (req, res) => {
         const { category_id } = req.params;
         db.all(`SELECT * FROM Subcategories WHERE category_id = ? ORDER BY subcategory_name`, [category_id], (err, rows) => {
@@ -876,6 +916,84 @@ app.get('/vendors', (req, res) => {
             console.error('Failed to generate Excel file:', error);
             res.status(500).send('Error generating Excel file.');
         }
+    });
+  });
+
+  app.get('/export/yearly-report', (req, res) => {
+    const { subcategory_id, startDate, endDate, etYear } = req.query;
+
+    if (!subcategory_id || !startDate || !endDate) {
+        return res.status(400).send('Subcategory ID, start date, and end date are required for export.');
+    }
+
+    // First, get the subcategory name for the filename
+    db.get(`SELECT subcategory_name FROM Subcategories WHERE subcategory_id = ?`, [subcategory_id], (nameErr, subcategory) => {
+        if (nameErr) {
+            console.error('Error fetching subcategory name:', nameErr.message);
+            return res.status(500).send('Failed to fetch subcategory name.');
+        }
+
+        const subcategoryName = subcategory ? subcategory.subcategory_name.replace(/[^a-z0-9]/gi, '_') : 'Unknown';
+        const fileNameYear = etYear || new Date(startDate).getFullYear();
+
+        const sql = `
+            SELECT
+                v.vendor_name AS "Vendor Name", 
+                v.tin_number AS "TIN No",
+                pr.mrc_number AS "MRC No",
+                pr.purchase_date AS "Purchase Date",
+                pr.fs_number AS "FS Number",
+                i.item_name AS "Item Name",
+                pr.quantity AS "Quantity", 
+                pr.unit_price AS "Unit Price", 
+                pr.vat_percentage AS "VAT %",
+                pr.vat_amount AS "VAT Amount",
+                (pr.total_amount - COALESCE(pr.vat_amount, 0)) AS "Base Total",
+                pr.total_amount AS "Total Amount"
+            FROM Purchase_Records pr
+            JOIN Vendors v ON pr.vendor_id = v.vendor_id
+            JOIN Items i ON pr.item_id = i.item_id
+            WHERE i.subcategory_id = ? 
+              AND DATE(pr.posted_date) BETWEEN ? AND ?
+              AND pr.vat_amount > 0
+            ORDER BY pr.posted_date, v.vendor_name;
+        `;
+
+        db.all(sql, [subcategory_id, startDate, endDate], (err, rows) => {
+            if (err) {
+                console.error('Error fetching data for Excel export:', err.message);
+                return res.status(500).send('Failed to fetch data for report.');
+            }
+
+            try {
+                // 1. Create a new workbook and a worksheet
+                const workbook = XLSX.utils.book_new();
+                const worksheet = XLSX.utils.json_to_sheet(rows);
+
+                // 2. Append the worksheet to the workbook
+                XLSX.utils.book_append_sheet(workbook, worksheet, 'Yearly Report');
+
+                // 3. Generate a buffer (a temporary binary representation of the file)
+                const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
+
+                // 4. Set headers to tell the browser to download the file
+                res.setHeader(
+                    'Content-Disposition',
+                    `attachment; filename="Yearly_Report_${subcategoryName}_${fileNameYear}.xlsx"`
+                );
+                res.setHeader(
+                    'Content-Type',
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                );
+
+                // 5. Send the file buffer as the response
+                res.send(buffer);
+
+            } catch (error) {
+                console.error('Failed to generate Excel file:', error);
+                res.status(500).send('Error generating Excel file.');
+            }
+        });
     });
   });
 
@@ -1310,6 +1428,8 @@ app.get('/vendors', (req, res) => {
           res.json(subcategoryNames);
       });
   });
+
+  
   
   // *** MODIFICATION START: Updated JV Report Logic ***
   app.get('/reports/jv',(req,res) =>{
@@ -1389,6 +1509,37 @@ app.get('/vendors', (req, res) => {
       });
   });
 
+  // New endpoint for Yearly Report
+  app.get('/reports/yearly', (req, res) => {
+      const { subcategory_id, startDate, endDate } = req.query;
+
+      if (!subcategory_id || !startDate || !endDate) {
+          return res.status(400).json({ error: 'Subcategory ID, start date, and end date are required.' });
+      }
+
+      const sql = `
+          SELECT
+              pr.purchase_id, pr.purchase_date, pr.quantity, pr.unit_price, pr.vat_amount,
+              pr.fs_number, pr.total_amount, pr.vat_percentage, pr.mrc_number, pr.unit,
+              v.vendor_name, v.tin_number, i.item_name
+          FROM Purchase_Records pr
+          JOIN Vendors v ON pr.vendor_id = v.vendor_id
+          JOIN Items i ON pr.item_id = i.item_id
+          WHERE i.subcategory_id = ? 
+            AND DATE(pr.posted_date) BETWEEN ? AND ?
+            AND pr.vat_amount > 0
+          ORDER BY pr.posted_date, v.vendor_name;
+      `;
+
+      db.all(sql, [subcategory_id, startDate, endDate], (err, rows) => {
+          if (err) {
+              console.error('Error fetching Yearly report:', err.message);
+              res.status(500).json({ error: 'Failed to fetch Yearly report.' });
+          } else {
+              res.json(rows);
+          }
+      });
+  });
   // *** MODIFICATION START: ADDED DETAILED LOGGING TO THE POSTING PROCESS ***
   app.post('/change-from-saved-to-posted', (req, res) => {
     let { purchase_ids } = req.body;
@@ -1572,8 +1723,9 @@ app.get('/reports/summary', (req, res) => {
                 <style>${reportCssContent}</style> <!-- Inject CSS content directly -->
             </head>
             <body>
-                <h1 class="report-title">Journal Voucher Report for ${singledate}</h1>
-                <table class="table">
+                <h1 class="report-header">Lambadina</h1>
+                <h2 class="report-title">Journal Voucher Report for ${singledate}</h2>
+                <table class="table jv-report-table">
                     <thead>
                         <tr>
                             <th rowspan="2">Items</th>
@@ -1731,7 +1883,7 @@ app.get('/export/summary-pdf', async (req, res) => {
                 <style>${reportCssContent}</style> <!-- Inject CSS content directly -->
             </head>
             <body>
-                <h1 class="report-title">DY-FINANCE</h1>
+                <h1 class="report-header">Lambadina</h1>
                 <h2 class="report-subtitle">${reportTitle}</h2>
         `;
 
@@ -1757,26 +1909,33 @@ app.get('/export/summary-pdf', async (req, res) => {
                 tableBodyRows += `<tr>${rowHtml}</tr>`;
             });
 
-            let footerHtml = `<td><strong>Total</strong></td>`;
-            currentChunkColumns.forEach(colName => {
-                if (colName === totalVatColumn) {
-                    const grandTotalVat = columnTotals.totalVat || 0;
-                    footerHtml += `<td class="is-numeric"><strong>${grandTotalVat > 0 ? grandTotalVat.toFixed(2) : '-'}</strong></td>`;
-                } else {
-                    const total = columnTotals[colName] || 0;
-                    footerHtml += `<td class="is-numeric"><strong>${total > 0 ? total.toFixed(2) : '-'}</strong></td>`;
-                }
-            });
-            const tableFooter = `<tfoot><tr>${footerHtml}</tr></tfoot>`;
-
             allContent += `
-                <table class="${!isLastPage ? 'page-break' : ''}">
+                <table class="table summary-report-table ${!isLastPage ? 'page-break' : ''}">
                     <thead><tr>${tableHeaders}</tr></thead>
                     <tbody>${tableBodyRows}</tbody>
-                    ${tableFooter}
                 </table>
             `;
         }
+
+        // Now, generate the single grand total footer table
+        let grandTotalFooterHtml = `<td><strong>Grand Total</strong></td>`;
+        allDataColumns.forEach(colName => { // Iterate over ALL columns for the grand total
+            if (colName === totalVatColumn) {
+                const grandTotalVat = columnTotals.totalVat || 0;
+                grandTotalFooterHtml += `<td class="is-numeric"><strong>${grandTotalVat > 0 ? grandTotalVat.toFixed(2) : '-'}</strong></td>`;
+            } else {
+                const total = columnTotals[colName] || 0;
+                grandTotalFooterHtml += `<td class="is-numeric"><strong>${total > 0 ? total.toFixed(2) : '-'}</strong></td>`;
+            }
+        });
+
+        allContent += `
+            <table class="table summary-report-table grand-total-table">
+                <tfoot>
+                    <tr>${grandTotalFooterHtml}</tr>
+                </tfoot>
+            </table>
+        `;
 
         allContent += `</body></html>`;
 
@@ -1858,6 +2017,52 @@ app.get('/export/summary-pdf', async (req, res) => {
           });
       } catch (error) {
           res.status(500).json({ error: 'An error occurred while calculating the date range.', details: error.message });
+      }
+  });
+
+  // *** NEW ENDPOINT: Get Gregorian Year Range for Ethiopian Year ***
+  app.get('/get-gregorian-year-range', (req, res) => {
+      const etYear = parseInt(req.query.year, 10);
+      
+      if (!etYear || isNaN(etYear)) {
+          return res.status(400).json({ error: 'Valid "year" query parameter is required.' });
+      }
+
+      try {
+          // The Gregorian year in which the Ethiopian year begins
+          const gregYear = etYear + 7;
+          
+          // Determine the Gregorian date for Meskerem 1 (Ethiopian New Year)
+          const newYearDay = new Date(gregYear, 8, 11);
+          if ((gregYear + 1) % 4 === 0 && (gregYear + 1) % 100 !== 0 || (gregYear + 1) % 400 === 0) {
+              newYearDay.setDate(12);
+          }
+
+          // Start date is Meskerem 1
+          const startDate = new Date(newYearDay.getTime());
+          
+          // End date is Pagume last day (13th month last day of Ethiopian year)
+          // Calculate date for Pagume 1 (after 12 months * 30 days = 360 days)
+          const pagume1Date = new Date(newYearDay.getTime());
+          pagume1Date.setDate(newYearDay.getDate() + 360);
+          
+          // Determine number of days in Pagume (13th month)
+          const isEthLeap = (etYear + 1) % 4 === 0;
+          const daysInPagume = isEthLeap ? 6 : 5;
+          
+          // End date is the last day of Pagume
+          const endDate = new Date(pagume1Date.getTime());
+          endDate.setDate(pagume1Date.getDate() + daysInPagume - 1);
+
+          // Helper to format dates as YYYY-MM-DD
+          const formatDate = (d) => d.toISOString().split('T')[0];
+          
+          res.json({
+              startDate: formatDate(startDate),
+              endDate: formatDate(endDate)
+          });
+      } catch (error) {
+          res.status(500).json({ error: 'An error occurred while calculating the year range.', details: error.message });
       }
   });
 

@@ -1,8 +1,8 @@
 const axios = require('axios');
 const FormData = require('form-data'); // Import form-data
 
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8242636316:AAG0OHvrVVJPJycgDXOTGHu7ZG8y_EZ4UrY'; // Use environment variable or replace
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '956063463';   // Use environment variable or replace
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8384055641:AAF2-lQvfeDLcmu2ftd_UzaCEY8nv-h9wB0'; // Use environment variable or replace
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '6336969115';   // Use environment variable or replace
 
 if (!TELEGRAM_BOT_TOKEN || TELEGRAM_BOT_TOKEN === 'YOUR_TELEGRAM_BOT_TOKEN' || !TELEGRAM_CHAT_ID || TELEGRAM_CHAT_ID === 'YOUR_TELEGRAM_CHAT_ID') {
     console.warn('WARNING: Telegram bot token or chat ID not configured. Sync functionality will not work.');

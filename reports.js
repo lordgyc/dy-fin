@@ -13,6 +13,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('go-to-workspace-btn')?.addEventListener('click', (e) => { e.preventDefault(); window.location.href = 'workspace.html'; });
     const generateSummaryPdfBtn = document.getElementById('generate-summary-pdf-btn'); // Ensure this is defined
     const generateJvPdfBtn = document.getElementById('generate-jv-pdf-btn'); // <-- ADD THIS
+    
+    // --- DROPDOWN ELEMENTS ---
+    const dropdownItems = document.querySelectorAll('.dropdown-item');
+    const dropdownToggle = document.getElementById('reports-dropdown-btn');
+    const dropdown = document.querySelector('.dropdown');
+    const managementButton = document.getElementById('management-button');
 
     // --- VAT REPORT ELEMENTS ---
     const vatReportSection = document.getElementById('vat-report-section');
@@ -39,6 +45,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const generateSummaryReportBtn = document.getElementById('generate-summary-report-btn');
     const summaryReportTableHead = document.querySelector('#summary-report-table thead tr');
     const summaryReportTableBody = document.querySelector('#summary-report-table tbody');
+
+    // --- YEARLY REPORT ELEMENTS ---
+    const yearlyReportSection = document.getElementById('yearly-report-section');
+    const yearlySubcategorySelect = document.getElementById('yearly-subcategory-select');
+    const yearlyEthiopianYearInput = document.getElementById('yearly-ethiopian-year-input');
+    const generateYearlyReportBtn = document.getElementById('generate-yearly-report-btn');
+    const exportYearlyReportBtn = document.getElementById('export-yearly-report-btn');
+    const yearlyReportTableBody = document.querySelector('#yearly-report-table tbody');
+    const yearlySummaryVatAmount = document.getElementById('yearly-summary-vat-amount');
+    const yearlySummaryBaseTotal = document.getElementById('yearly-summary-base-total');
+    const yearlySummaryTotalAmount = document.getElementById('yearly-summary-total-amount');
 
     // --- MANAGEMENT ELEMENTS ---
     const managementSection = document.getElementById('management-section');
@@ -144,9 +161,30 @@ document.addEventListener('DOMContentLoaded', () => {
             targetSection.style.display = 'block';
         }
 
+        // Update active states for nav buttons and dropdown items
         navButtons.forEach(btn => {
             btn.classList.toggle('active', btn.dataset.section === targetSectionId);
         });
+        
+        // Update dropdown items active state
+        dropdownItems.forEach(item => {
+            item.classList.toggle('active', item.dataset.section === targetSectionId);
+        });
+        
+        // Update management button active state
+        if (managementButton) {
+            managementButton.classList.toggle('active', managementButton.dataset.section === targetSectionId);
+        }
+        
+        // Update dropdown toggle text and active state based on active report
+        const activeReport = Array.from(dropdownItems).find(item => item.dataset.section === targetSectionId);
+        if (activeReport && dropdownToggle) {
+            dropdownToggle.innerHTML = `${activeReport.textContent} <span class="dropdown-arrow">▼</span>`;
+            dropdownToggle.classList.add('active');
+        } else if (dropdownToggle) {
+            dropdownToggle.innerHTML = `Reports <span class="dropdown-arrow">▼</span>`;
+            dropdownToggle.classList.remove('active');
+        }
 
         // Pre-populate and fetch data for date-based reports
         if (targetSectionId === 'vat-report-section' || targetSectionId === 'summary-report-section') {
@@ -169,12 +207,48 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
             }
+        } else if (targetSectionId === 'yearly-report-section') {
+            // Load subcategories and set default year to current Ethiopian year
+            loadYearlySubcategories();
+            const todayStr = new Date().toISOString().split('T')[0];
+            fetchEthiopianDate(todayStr).then(etDate => {
+                if (etDate) {
+                    yearlyEthiopianYearInput.value = etDate.year;
+                }
+            });
         } else if (targetSectionId === 'management-section') {
              // Default to the vendor tab when management is opened
             document.querySelector('.tab-button[data-tab="vendor-tab"]').click();
         }
     }
 
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+        if (dropdown && !dropdown.contains(e.target)) {
+            dropdown.classList.remove('active');
+        }
+    });
+
+    // Toggle dropdown
+    dropdownToggle?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdown.classList.toggle('active');
+    });
+
+    // Handle dropdown item clicks
+    dropdownItems.forEach(item => {
+        item.addEventListener('click', () => {
+            switchView(item.dataset.section);
+            dropdown.classList.remove('active');
+        });
+    });
+
+    // Handle management button
+    managementButton?.addEventListener('click', () => {
+        switchView(managementButton.dataset.section);
+    });
+
+    // Handle regular nav buttons (if any remain)
     navButtons.forEach(button => {
         button.addEventListener('click', () => {
             switchView(button.dataset.section);
@@ -574,6 +648,198 @@ document.addEventListener('DOMContentLoaded', () => {
         const range = await fetchGregorianRange(etYear, etMonth);
         if (range) {
             fetchSummaryReport(range.startDate, range.endDate);
+        }
+    });
+
+    // --- YEARLY REPORT LOGIC ---
+    async function loadYearlySubcategories() {
+        if (!yearlySubcategorySelect) {
+            console.error('Yearly subcategory select element not found');
+            return;
+        }
+
+        try {
+            console.log('Fetching subcategories from /subcategories/list...');
+            console.log('Element exists:', !!yearlySubcategorySelect);
+            const response = await fetch('http://localhost:3000/subcategories/list', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            
+            console.log('Response status:', response.status, response.statusText);
+            console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Failed to load subcategories:', response.status, errorText);
+                showNotification(`Failed to load subcategories from server: ${response.status}`);
+                return;
+            }
+            
+            const responseText = await response.text();
+            console.log('Raw response text:', responseText);
+            
+            const subcategories = JSON.parse(responseText);
+            console.log('Parsed subcategories data:', subcategories);
+            console.log('Is array?', Array.isArray(subcategories));
+            console.log('Length:', subcategories ? subcategories.length : 'null/undefined');
+            
+            if (!Array.isArray(subcategories)) {
+                console.error('Invalid subcategories data (not an array):', subcategories);
+                showNotification('Invalid subcategories data received.');
+                return;
+            }
+            
+            const currentVal = yearlySubcategorySelect.value;
+            yearlySubcategorySelect.innerHTML = '<option value="">Select Subcategory</option>';
+            
+            if (subcategories.length === 0) {
+                console.warn('No subcategories found in database');
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No subcategories available - Please add subcategories in Management section';
+                option.disabled = true;
+                yearlySubcategorySelect.appendChild(option);
+            } else {
+                let addedCount = 0;
+                subcategories.forEach(subcategory => {
+                    if (subcategory && subcategory.subcategory_id && subcategory.subcategory_name) {
+                        const option = document.createElement('option');
+                        option.value = subcategory.subcategory_id;
+                        option.textContent = subcategory.subcategory_name;
+                        yearlySubcategorySelect.appendChild(option);
+                        addedCount++;
+                    } else {
+                        console.warn('Invalid subcategory entry:', subcategory);
+                    }
+                });
+                console.log(`Added ${addedCount} subcategories to dropdown out of ${subcategories.length} total`);
+            }
+            
+            // Preserve selection if it still exists
+            if (currentVal && Array.from(yearlySubcategorySelect.options).some(opt => opt.value === currentVal)) {
+                yearlySubcategorySelect.value = currentVal;
+            }
+
+            console.log(`Loaded ${subcategories.length} subcategories into yearly report dropdown`);
+        } catch (error) {
+            console.error('Error loading subcategories:', error);
+            showNotification('Network error loading subcategories. Please check server connection.');
+        }
+    }
+
+    /**
+     * Fetches the Gregorian year range for a given Ethiopian year from the server.
+     * @param {number} etYear - The Ethiopian year.
+     * @returns {Promise<{startDate: string, endDate: string}|null>}
+     */
+    async function fetchGregorianYearRange(etYear) {
+        try {
+            const response = await fetch(`http://localhost:3000/get-gregorian-year-range?year=${etYear}`);
+            if (!response.ok) {
+                showNotification('Failed to fetch year range from server.');
+                return null;
+            }
+            return await response.json();
+        } catch (error) {
+            showNotification('Network error fetching year range.');
+            return null;
+        }
+    }
+
+    const fetchYearlyReport = async (subcategoryId, startDate, endDate) => {
+        try {
+            const response = await fetch(`http://localhost:3000/reports/yearly?subcategory_id=${subcategoryId}&startDate=${startDate}&endDate=${endDate}`);
+            const reportData = await response.json();
+            if (response.ok) renderYearlyReport(reportData);
+            else showNotification(`Error fetching Yearly report: ${reportData.error}`);
+        } catch (error) {
+            showNotification('Network error fetching Yearly report. Please check server connection.');
+        }
+    };
+
+    const renderYearlyReport = (data) => {
+        yearlyReportTableBody.innerHTML = '';
+        if (data.length === 0) {
+            yearlyReportTableBody.innerHTML = '<tr><td colspan="13" class="placeholder-cell">No data for the selected subcategory and year.</td></tr>';
+            yearlySummaryVatAmount.textContent = '0.00';
+            yearlySummaryBaseTotal.textContent = '0.00';
+            yearlySummaryTotalAmount.textContent = '0.00';
+            return;
+        }
+
+        let totalVat = 0, totalBase = 0, totalAmount = 0;
+        data.forEach(record => {
+            const baseTotal = (record.total_amount || 0) - (record.vat_amount || 0);
+            
+            const date = new Date(record.purchase_date);
+            const formattedDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()).toLocaleDateString();
+
+            const row = yearlyReportTableBody.insertRow();
+            row.innerHTML = `
+                <td>${record.vendor_name}</td>
+                <td>${record.tin_number}</td>
+                <td>${record.mrc_number || ''}</td>
+                <td>${formattedDate}</td>
+                <td>${record.fs_number || ''}</td>
+                <td>${record.unit || ''}</td>
+                <td>${record.item_name}</td>
+                <td class="is-numeric">${record.quantity}</td>
+                <td class="is-numeric">${(record.unit_price || 0).toFixed(2)}</td>
+                <td class="is-numeric">${record.vat_percentage || 0}%</td>
+                <td class="is-numeric">${(record.vat_amount || 0).toFixed(2)}</td>
+                <td class="is-numeric">${baseTotal.toFixed(2)}</td>
+                <td class="is-numeric">${(record.total_amount || 0).toFixed(2)}</td>
+            `;
+            totalVat += record.vat_amount || 0;
+            totalBase += baseTotal;
+            totalAmount += record.total_amount || 0;
+        });
+
+        yearlySummaryVatAmount.textContent = totalVat.toFixed(2);
+        yearlySummaryBaseTotal.textContent = totalBase.toFixed(2);
+        yearlySummaryTotalAmount.textContent = totalAmount.toFixed(2);
+    };
+
+    generateYearlyReportBtn?.addEventListener('click', async () => {
+        const subcategoryId = yearlySubcategorySelect.value;
+        const etYear = parseInt(yearlyEthiopianYearInput.value, 10);
+
+        if (!subcategoryId) {
+            showNotification('Please select a subcategory.');
+            return;
+        }
+
+        if (!etYear || isNaN(etYear)) {
+            showNotification('Please enter a valid Ethiopian year.');
+            return;
+        }
+
+        const range = await fetchGregorianYearRange(etYear);
+        if (range) {
+            fetchYearlyReport(subcategoryId, range.startDate, range.endDate);
+        }
+    });
+
+    exportYearlyReportBtn?.addEventListener('click', async () => {
+        const subcategoryId = yearlySubcategorySelect.value;
+        const etYear = parseInt(yearlyEthiopianYearInput.value, 10);
+
+        if (!subcategoryId) {
+            showNotification('Please select a subcategory to export.');
+            return;
+        }
+
+        if (!etYear || isNaN(etYear)) {
+            showNotification('Please enter a valid Ethiopian year to export.');
+            return;
+        }
+
+        const range = await fetchGregorianYearRange(etYear);
+        if (range) {
+            window.location.href = `http://localhost:3000/export/yearly-report?subcategory_id=${subcategoryId}&startDate=${range.startDate}&endDate=${range.endDate}&etYear=${etYear}`;
         }
     });
 
