@@ -1,25 +1,36 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap");
 
 :root {
   --bg: #f8fafc;
-  --bg-soft: #f1f5f9;
+  --bg-soft: #ffffff;
   --border: #e2e8f0;
   --text: #0f172a;
   --text-muted: #64748b;
-  --primary: #6d28d9;
-  --primary-light: #ede9fe;
+  --primary: #6366f1;
+  --primary-light: #e0e7ff;
+  --primary-dark: #4f46e5;
   --header-height: 64px;
+
+  --font-sans: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: "Roboto Mono", monospace;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
-/* 1. Base & Layout (Copied from workspace.css for consistency) */
+/* 1. Base & Layout */
 * { box-sizing: border-box; }
 
 body {
   margin: 0;
-  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   color: var(--text);
   background: var(--bg);
   font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .container {
@@ -32,8 +43,8 @@ body {
 .header {
   position: sticky;
   top: 0;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
   border-bottom: 1px solid var(--border);
   z-index: 100;
 }
@@ -43,313 +54,96 @@ body {
 .separator { width: 1px; height: 24px; background-color: var(--border); margin: 0 0.5rem; }
 
 /* Dropdown Styles */
-.dropdown {
-  position: relative;
-  display: inline-block;
-}
-
-.dropdown-toggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.dropdown-arrow {
-  font-size: 0.75rem;
-  transition: transform 0.2s ease;
-}
-
-.dropdown.active .dropdown-arrow {
-  transform: rotate(180deg);
-}
-
+.dropdown { position: relative; display: inline-block; }
+.dropdown-toggle { display: inline-flex; align-items: center; gap: 0.5rem; }
+.dropdown-arrow { font-size: 0.75rem; transition: transform 0.2s ease; }
+.dropdown.active .dropdown-arrow { transform: rotate(180deg); }
 .dropdown-menu {
   display: none;
   position: absolute;
-  top: calc(100% + 0.5rem);
+  top: calc(100% + 0.75rem);
   left: 0;
   background: white;
   border: 1px solid var(--border);
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
-  min-width: 180px;
+  box-shadow: var(--shadow-lg);
+  min-width: 200px;
   z-index: 200;
   overflow: hidden;
+  padding: 0.5rem;
 }
-
-.dropdown.active .dropdown-menu {
-  display: block;
-  animation: dropdown-fade-in 0.2s ease;
-}
-
+.dropdown.active .dropdown-menu { display: block; animation: dropdown-fade-in 0.2s ease; }
 .dropdown-item {
-  display: block;
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: none;
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text);
-  transition: background-color 0.15s ease;
-  border-radius: 0;
+  display: block; width: 100%; padding: 0.6rem 1rem; border: none;
+  background: transparent; text-align: left; cursor: pointer;
+  font-size: 14px; font-weight: 500; color: var(--text);
+  transition: background-color 0.15s ease; border-radius: 6px;
 }
-
-.dropdown-item:hover {
-  background-color: var(--bg-soft);
-}
-
-.dropdown-item.active {
-  background-color: var(--primary-light);
-  color: var(--primary);
-  font-weight: 600;
-}
-
-@keyframes dropdown-fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(-8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
+.dropdown-item:hover { background-color: #f1f5f9; }
+.dropdown-item.active { background-color: var(--primary-light); color: var(--primary); font-weight: 600; }
+@keyframes dropdown-fade-in { from { opacity: 0; transform: translateY(-8px); } to { opacity: 1; transform: translateY(0); } }
 
 /* 3. Page Structure */
 .page-section { margin-top: 2rem; }
 .page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
-.page-header h1 { margin: 0; font-size: 2rem; }
+.page-header h1 { margin: 0; font-size: 1.75rem; font-weight: 700; }
 .controls { display: flex; align-items: center; gap: 0.75rem; }
 
-/* 4. Buttons (Copied from workspace.css) */
+/* 4. Buttons */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem;
-  border-radius: 8px; border: 1px solid var(--border); padding: 0.5rem 1rem;
+  border-radius: 8px; border: 1px solid var(--border); padding: 0.6rem 1.1rem;
   background: white; color: var(--text); text-decoration: none; font-weight: 600;
   font-size: 14px; cursor: pointer; transition: all 150ms ease-in-out;
+  box-shadow: var(--shadow-sm);
 }
-.btn:hover { background-color: var(--bg-soft); }
-.btn-primary { background: var(--primary); border-color: transparent; color: white; }
-.btn-primary:hover { background: #5b21b6; }
-.btn-ghost { background: transparent; border-color: transparent; }
-.btn.active { background-color: var(--primary-light); color: var(--primary); border-color: var(--primary); }
+.btn:hover { border-color: #d1d5db; transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.btn:active { transform: translateY(0); box-shadow: var(--shadow-sm); }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+.btn-ghost { background: transparent; border-color: transparent; box-shadow: none; }
+.btn-ghost:hover { background-color: #f1f5f9; }
+.btn.active { background-color: var(--primary-light); color: var(--primary); border-color: var(--primary-light); }
 
 /* 5. Cards & Welcome Message */
 .card {
   border: 1px solid var(--border); background: white; border-radius: 16px;
-  overflow: hidden; box-shadow: 0 4px 10px rgba(15, 23, 42, .05);
+  overflow: hidden; box-shadow: var(--shadow);
 }
-.welcome-card { padding: 3rem; text-align: center; }
-.welcome-card h1 { font-size: 2.5rem; margin-top: 0; }
+.welcome-card { padding: 4rem; text-align: center; }
+.welcome-card h1 { font-size: 2.5rem; font-weight: 800; margin-top: 0; letter-spacing: -0.02em; }
 .card-desc { font-size: 1.1rem; color: var(--text-muted); max-width: 600px; margin: 0.5rem auto 0 auto; }
 .card-body { padding: 1.5rem; }
 
-/* 6. Table Styles (Copied & adapted from workspace.css) */
+/* 6. Table Styles */
 .table-wrapper { overflow-x: auto; max-height: calc(100vh - 250px); }
 .table {
   width: 100%;
-  border-collapse: collapse; /* Use collapse for cleaner borders */
+  border-collapse: separate;
   border-spacing: 0;
-  border: 1px solid var(--border); /* Add a border around the entire table */
 }
-
 .table th, .table td {
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border); /* All cells get a border */
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--border);
   white-space: nowrap;
   vertical-align: middle;
 }
-
-/* Table Header Styling */
 .table thead th {
-  position: sticky;
-  top: 0;
-  background: var(--bg-soft); /* Lighter background for headers */
-  color: var(--text); /* Darker text for headers */
-  text-align: center; /* Center align headers by default */
-  font-weight: 700; /* Bolder font weight */
-  font-size: 13px; /* Slightly larger font size */
-  text-transform: uppercase;
-  z-index: 10;
-  border-color: var(--border); /* Match header border to background */
+  position: sticky; top: 0; background: #f8fafc; text-align: left;
+  font-weight: 600; font-size: 12px; text-transform: uppercase;
+  color: var(--text-muted); letter-spacing: 0.05em; z-index: 10;
+  border-bottom-width: 2px;
 }
-.table thead th:first-child { text-align: left; } /* Keep the first column header left-aligned */
-
-/* Table Body Styling */
-.table tbody tr:nth-child(even) {
-  background-color: var(--bg-soft); /* Zebra striping for readability */
-}
-.table tbody tr:hover {
-  background-color: var(--primary-light); /* Highlight on hover */
-}
-
-/* Table Footer Styling */
+.table tbody tr:hover { background-color: var(--primary-light); }
 .table tfoot td {
-  position: sticky;
-  bottom: 0;
-  background: var(--bg-soft); /* Lighter background for footer */
-  border-top: 2px solid var(--border); /* Stronger border for footer */
-  font-weight: 700; /* Bolder font for totals */
-  color: var(--text); /* Darker text for footer */
+  position: sticky; bottom: 0; background: #f1f5f9;
+  border-top: 2px solid var(--border); font-weight: 600;
+  font-size: 1rem; padding: 0.8rem 1rem; z-index: 10;
 }
-
-/* Numeric alignment */
-.is-numeric { text-align: right; }
-
-/* Placeholder cell for empty reports */
+.is-numeric { text-align: right; font-feature-settings: "tnum"; font-family: var(--font-mono); }
 .placeholder-cell { text-align: center; color: var(--text-muted); padding: 3rem; }
 
-/* Print-specific styles for PDF export */
-@media print {
-  body {
-    background: white;
-    font-size: 10pt; /* Smaller font for print */
-    -webkit-print-color-adjust: exact; /* Ensure background colors are printed */
-    print-color-adjust: exact;
-  }
-
-  .header, .nav, .page-header .controls, .modal, .btn, .tab-button {
-    display: none !important; /* Hide UI elements not relevant for print */
-  }
-
-  .container {
-    max-width: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  .page-section {
-    margin-top: 0;
-  }
-
-  .card {
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
-    overflow: visible;
-  }
-
-  .table-wrapper {
-    overflow: visible; /* Allow table to expand fully */
-    max-height: none;
-  }
-
-  .table {
-    border: 1px solid #ccc; /* Lighter border for print */
-  }
-
-  .table {
-    width: 100%;
-    table-layout: fixed; /* Ensures columns respect specified widths */
-    border-collapse: collapse;
-    margin-bottom: 1rem;
-  }
-
-  .table th, .table td {
-    padding: 0.4rem 0.6rem; /* Adjusted padding for print */
-    border: 1px solid #ddd; /* Lighter cell borders */
-    word-wrap: break-word; /* Allow long content to wrap */
-  }
-
-  .table thead th {
-    background: #e9ecef !important; /* Slightly darker header background for print */
-    color: #333 !important;
-    border-color: #ccc !important;
-    font-size: 9pt;
-    font-weight: 700;
-    text-transform: uppercase;
-  }
-
-  /* Specific column widths for Summary Report */
-  .summary-report-table th:first-child,
-  .summary-report-table td:first-child {
-    width: 15%; /* Date column */
-  }
-  .summary-report-table th.is-numeric,
-  .summary-report-table td.is-numeric {
-    width: 15%; /* Total VAT column */
-  }
-  .summary-report-table th:not(:first-child):not(.is-numeric),
-  .summary-report-table td:not(:first-child):not(.is-numeric) {
-    width: 14%; /* Other item columns */
-  }
-
-  /* Specific column widths for JV Report */
-  .jv-report-table th:first-child,
-  .jv-report-table td:first-child {
-    width: 40%; /* Items column */
-    text-align: left;
-  }
-  .jv-report-table th:nth-child(2), .jv-report-table td:nth-child(2),
-  .jv-report-table th:nth-child(3), .jv-report-table td:nth-child(3),
-  .jv-report-table th:nth-child(4), .jv-report-table td:nth-child(4),
-  .jv-report-table th:nth-child(5), .jv-report-table td:nth-child(5) {
-    width: 15%; /* Birr/Cents columns */
-  }
-
-  .table tbody tr:nth-child(even) {
-    background-color: #f8f9fa !important; /* Lighter zebra striping for print */
-  }
-
-  .table tfoot td {
-    background: #dee2e6 !important; /* Even lighter footer background for print */
-    color: #333 !important;
-    border-color: #ccc !important;
-    font-size: 9pt;
-  }
-
-  .table tbody tr:nth-child(even) {
-    background-color: #f5f5f5 !important; /* Lighter zebra striping for print */
-  }
-
-  .table tfoot td {
-    background: #e0e0e0 !important; /* Even lighter footer background for print */
-    color: #333 !important;
-    border-color: #ddd !important;
-  }
-
-  h1 {
-    font-size: 1.5rem; /* Adjust heading size for print */
-    text-align: center;
-    margin-bottom: 1rem;
-  }
-
-  .report-header {
-    font-size: 2.5rem;
-    font-weight: bold;
-    color: var(--primary);
-    text-align: center;
-    margin: 0 0 0.5rem 0;
-  }
-
-  .report-subtitle, .report-title {
-    text-align: center;
-    color: var(--text-muted);
-    margin: 0 0 1.5rem 0;
-  }
-
-  .page-break {
-    page-break-after: always;
-  }
-
-  .grand-total-table {
-    margin-top: 1rem; /* Add some space above the grand total table */
-    border-top: 2px solid var(--primary) !important; /* Stronger top border to distinguish it */
-    background-color: var(--primary-light) !important; /* Light primary background for emphasis */
-  }
-
-  .grand-total-table tfoot td {
-    font-size: 10pt;
-    font-weight: 800; /* Extra bold for grand total */
-    color: var(--primary) !important; /* Primary color text */
-    background-color: var(--primary-light) !important; /* Ensure background is applied */
-  }
-}
-
-/* 7. NEW: Tab Component */
+/* 7. Tab Component */
 .tabs { display: flex; border-bottom: 1px solid var(--border); padding: 0 1.5rem; }
 .tab-button {
   padding: 1rem 1.25rem; border: none; background: transparent; cursor: pointer;
@@ -363,62 +157,72 @@ body {
 .content-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
 .content-header h3 { margin: 0; }
 
-/* 8. NEW: Modal Component */
+/* 8. Modal Component */
 .modal {
   display: none; position: fixed; z-index: 1000; left: 0; top: 0;
-  width: 100%; height: 100%; overflow: auto; background-color: rgba(15, 23, 42, 0.5);
-  align-items: center; justify-content: center;
+  width: 100%; height: 100%; overflow: auto; background-color: rgba(15, 23, 42, 0.6);
+  align-items: center; justify-content: center; backdrop-filter: blur(4px);
 }
 .modal-content {
   background-color: #fff; border-radius: 16px; width: 100%; max-width: 500px;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, .1); animation: modal-fade-in 0.3s ease;
+  box-shadow: var(--shadow-lg); animation: modal-fade-in 0.3s ease;
 }
-.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.5rem; border-bottom: 1px solid var(--border); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border); }
 .modal-header h2 { margin: 0; font-size: 1.25rem; }
 .close-btn { font-size: 1.5rem; font-weight: bold; border: none; background: none; cursor: pointer; color: var(--text-muted); }
 .close-btn:hover { color: var(--text); }
 .modal-body { padding: 1.5rem; }
-.modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; background: var(--bg-soft); border-top: 1px solid var(--border); border-radius: 0 0 16px 16px; }
-.form-group { margin-bottom: 1rem; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 0.75rem; padding: 1rem 1.5rem; background: #f8fafc; border-top: 1px solid var(--border); border-radius: 0 0 16px 16px; }
+.form-group { margin-bottom: 1.25rem; }
 .form-group label { display: block; font-weight: 600; margin-bottom: 0.5rem; }
 .input {
   width: 100%; border: 1px solid var(--border); border-radius: 8px; padding: 0.75rem 1rem;
-  font-size: 1rem; outline-color: var(--primary);
+  font-size: 1rem; transition: all 150ms ease-in-out;
 }
-
+.input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 3px var(--primary-light); }
 @keyframes modal-fade-in { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-/* Add to the end of report.css */
-.form-group .btn {
-    padding: 0.5rem 1rem;
-}
 
-.mrc-input-group {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
-}
-
-.mrc-input-group .input {
-    flex-grow: 1;
-}
-
+/* Management Section Specifics */
+.mrc-input-group { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.mrc-input-group .input { flex-grow: 1; }
 .btn-remove-mrc {
-    padding: 0.5rem;
-    line-height: 1;
-    font-size: 1.5rem;
-    color: var(--text-muted);
+    padding: 0.5rem; line-height: 1; font-size: 1.5rem; color: var(--text-muted);
+    border-radius: 50%;
 }
+.btn-remove-mrc:hover { color: #ef4444; background-color: #fee2e2; }
+.action-cell { text-align: right; }
+#jv-report-table th[rowspan="2"] { vertical-align: middle; }
 
-.btn-remove-mrc:hover {
-    color: #dc2626; /* Danger color */
-    background-color: #fee2e2; /* Danger light */
-}
-
-.action-cell {
-    text-align: right;
-}
-
-#jv-report-table th[rowspan="2"] {
-    vertical-align: middle;
+/* Print-specific styles */
+@media print {
+  body { background: white; font-size: 10pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .header, .nav, .page-header .controls, .modal, .btn, .tab-button { display: none !important; }
+  .container { max-width: none; padding: 0; margin: 0; }
+  .page-section { margin-top: 0; }
+  .card { border: none; box-shadow: none; border-radius: 0; overflow: visible; }
+  .table-wrapper { overflow: visible; max-height: none; }
+  .table { border: 1px solid #ccc; width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 1rem; }
+  .table th, .table td { padding: 0.4rem 0.6rem; border: 1px solid #ddd; word-wrap: break-word; }
+  .table thead th { background: #e9ecef !important; color: #333 !important; border-color: #ccc !important; font-size: 9pt; font-weight: 700; text-transform: uppercase; }
+  .summary-report-table { table-layout: auto; }
+  .summary-report-table th, .summary-report-table td { font-size: 8pt; padding: 0.2rem 0.4rem; }
+  .summary-report-table th:first-child, .summary-report-table td:first-child { width: 8%; }
+  .summary-report-table th.is-numeric, .summary-report-table td.is-numeric { width: 10%; }
+  .summary-report-table th:not(:first-child):not(.is-numeric), .summary-report-table td:not(:first-child):not(.is-numeric) { width: auto; }
+  .jv-report-table th:first-child, .jv-report-table td:first-child { width: 40%; text-align: left; }
+  .jv-report-table th:nth-child(2), .jv-report-table td:nth-child(2),
+  .jv-report-table th:nth-child(3), .jv-report-table td:nth-child(3),
+  .jv-report-table th:nth-child(4), .jv-report-table td:nth-child(4),
+  .jv-report-table th:nth-child(5), .jv-report-table td:nth-child(5) { width: 15%; }
+  .table tbody tr:nth-child(even) { background-color: #f8f9fa !important; }
+  .table tfoot td { position: static; background: #dee2e6 !important; color: #333 !important; border-color: #ccc !important; font-size: 9pt; }
+  h1 { font-size: 1.5rem; text-align: center; margin-bottom: 1rem; }
+  .report-header { font-size: 1rem; font-weight: bold; color: var(--primary); text-align: center; margin: 0 0 0.5rem 0; }
+  .report-subtitle, .report-title { text-align: center; color: var(--text-muted); margin: 0 0 1.5rem 0; }
+  .page-break { page-break-after: always; }
+  .grand-total-table { margin-top: 1rem; border-top: 2px solid var(--primary) !important; background-color: var(--primary-light) !important; }
+  .grand-total-table tfoot td { font-size: 10pt; font-weight: 800; color: var(--primary) !important; background-color: var(--primary-light) !important; }
+  .report-footer { display: flex; justify-content: space-between; margin-top: 3rem; padding-top: 1rem; border-top: 1px solid #ccc; font-size: 9pt; }
+  .report-footer .footer-item { flex: 1; text-align: left; padding-bottom: 0.5rem; }
+  .report-footer .footer-item:last-child { text-align: right; }
 }

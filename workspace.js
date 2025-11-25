@@ -1,4 +1,61 @@
 document.addEventListener('DOMContentLoaded', () => {
+    const userRole = localStorage.getItem('userRole');
+    const EDIT_POSTED_CODE = "122119"; // Static 6-digit code for editing posted records
+
+    const promptForEditCode = async () => {
+        return new Promise(resolve => {
+            const modalOverlay = document.createElement('div');
+            modalOverlay.id = 'edit-code-modal-overlay';
+            modalOverlay.innerHTML = `
+                <div id="edit-code-modal-content">
+                    <p>Enter 6-digit code to enable editing of posted records:</p>
+                    <input type="password" id="edit-code-input" maxlength="6" autocomplete="off" />
+                    <div id="edit-code-modal-buttons">
+                        <button id="edit-code-cancel-btn">Cancel</button>
+                        <button id="edit-code-submit-btn">Submit</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modalOverlay);
+
+            const codeInput = document.getElementById('edit-code-input');
+            const submitBtn = document.getElementById('edit-code-submit-btn');
+            const cancelBtn = document.getElementById('edit-code-cancel-btn');
+
+            const cleanup = () => {
+                document.body.removeChild(modalOverlay);
+                document.removeEventListener('keydown', handleKeydown);
+            };
+
+            const handleSubmit = () => {
+                const enteredCode = codeInput.value;
+                cleanup();
+                resolve(enteredCode === EDIT_POSTED_CODE);
+            };
+
+            const handleCancel = () => {
+                cleanup();
+                resolve(false);
+            };
+
+            submitBtn.addEventListener('click', handleSubmit);
+            cancelBtn.addEventListener('click', handleCancel);
+            codeInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    handleSubmit();
+                }
+            });
+
+            const handleKeydown = (e) => {
+                if (e.key === 'Escape') {
+                    handleCancel();
+                }
+            };
+            document.addEventListener('keydown', handleKeydown);
+
+            codeInput.focus();
+        });
+    };
     // Main action buttons
     // START: Real-time Sync Status Indicator Setup
     const setupSyncIndicator = () => {
@@ -85,20 +142,30 @@ document.addEventListener('DOMContentLoaded', () => {
     const syncIndicator = document.getElementById('sync-status-indicator');
     const syncMessage = document.getElementById('sync-message');
 
-    const showSyncStatus = (message, state = 'loading') => {
+    let syncTimeout;
+    const showSyncStatus = (message, state = 'loading', duration = 4000) => {
+        clearTimeout(syncTimeout);
         syncMessage.textContent = message;
-        syncIndicator.className = 'sync-indicator-visible';
+        syncIndicator.className = 'sync-indicator-visible'; // Reset classes
         syncIndicator.classList.add(state);
+
+        // Don't auto-hide for loading state
+        if (state === 'success' || state === 'error') {
+            syncTimeout = setTimeout(() => {
+                hideSyncStatus();
+            }, duration);
+        }
     };
 
     const hideSyncStatus = () => {
+        clearTimeout(syncTimeout);
         syncIndicator.classList.remove('sync-indicator-visible');
     };
     // END: Real-time Sync Status Indicator Setup
     const addRowBtn = document.getElementById('add-row-btn');
     const syncLogsBtn = document.getElementById('sync-logs-btn');
     const mainActionButtons = document.getElementById('main-action-buttons');
-
+    const postconfirm = document.getElementById('save-post')
     const actionsTableBody = document.querySelector('#actions-table tbody');
     const summarySubtotal = document.getElementById('summary-subtotal');
     const summaryTotalVat = document.getElementById('summary-total-vat');
@@ -109,6 +176,84 @@ document.addEventListener('DOMContentLoaded', () => {
     const postedDatePicker = document.getElementById('posted-date-picker');
     const loadPostedBtn = document.getElementById('load-posted-btn');
     const backToWorkspaceBtn = document.getElementById('back-to-workspace-btn');
+    const postdate = document.getElementById('post-prompt')
+    const postdatepicker = document.getElementById('post-date')
+    const postc = document.getElementById('postc')
+    const overlay = document.getElementById('overlay')
+    // --- VENDOR MODAL ELEMENTS ---
+    const addVendorModal = document.getElementById('addVendorModal');
+    const openAddVendorModalBtn = document.getElementById('open-add-vendor-modal-btn');
+    const vendorForm = document.getElementById('addVendorForm');
+    const mrcContainer = document.getElementById('mrcContainer');
+    const addMrcBtn = document.getElementById('addMrcBtn');
+
+    let isCurrentlyPostedView = false;
+    const initialPurchaseIdsPerCard = new Map(); // Store purchase_ids loaded for each card
+
+    // --- VENDOR MODAL LOGIC ---
+    function openModal(modalElement) {
+        modalElement.style.display = 'flex';
+        vendorForm.reset();
+        mrcContainer.innerHTML = '<div class="mrc-input-group"><input type="text" name="mrcNumbers[]" class="input"/></div>';
+        modalElement.querySelector('#vendorModalTitle').textContent = 'Add New Vendor';
+    }
+
+    function closeModal(modalElement) {
+        modalElement.style.display = 'none';
+    }
+
+    openAddVendorModalBtn?.addEventListener('click', () => openModal(addVendorModal));
+
+    addVendorModal?.querySelectorAll('.close-btn').forEach(btn => {
+        btn.addEventListener('click', () => closeModal(addVendorModal));
+    });
+    addVendorModal?.addEventListener('click', (e) => {
+        if (e.target === addVendorModal) closeModal(addVendorModal);
+    });
+
+    addMrcBtn?.addEventListener('click', () => {
+        const newMrcInput = document.createElement('div');
+        newMrcInput.className = 'mrc-input-group';
+        newMrcInput.innerHTML = `
+          <input type="text" name="mrcNumbers[]" class="input" />
+          <button type="button" class="btn btn-ghost btn-remove-mrc">&times;</button>
+        `;
+        mrcContainer.appendChild(newMrcInput);
+    });
+    
+    mrcContainer?.addEventListener('click', e => {
+        if (e.target.classList.contains('btn-remove-mrc')) {
+            e.target.parentElement.remove();
+        }
+    });
+
+    vendorForm?.addEventListener('submit', async e => {
+        e.preventDefault();
+        const formData = {
+            vendor_name: document.getElementById('vendorName').value,
+            tin_number: document.getElementById('tinNumber').value,
+            mrc_numbers: Array.from(document.querySelectorAll('input[name="mrcNumbers[]"]'))
+                              .map(input => input.value.trim())
+                              .filter(Boolean)
+        };
+
+        try {
+            const response = await fetch('http://localhost:3000/addvendors', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(formData),
+            });
+            if (response.ok) {
+                showNotification(`Vendor added successfully!`);
+                closeModal(addVendorModal);
+            } else {
+                showNotification(`Failed to add vendor.`);
+            }
+        } catch (error) {
+            showNotification('An error occurred. Please try again.');
+        }
+    });
+
 
     const setupCalculationListeners = (targetRow) => {
         const isSub = targetRow.classList.contains('sub-row');
@@ -455,42 +600,42 @@ document.addEventListener('DOMContentLoaded', () => {
             const saveButton = card.querySelector('.save-row-btn');
             
             deleteButton?.addEventListener('click', async () => {
-    const card = rowElement.closest('.purchase-group-card');
-    const isConfirmed = await showConfirmationModal('Are you sure you want to delete this entire component and all its records?');
+                const card = rowElement.closest('.purchase-group-card');
+                const isConfirmed = await showConfirmationModal('Are you sure you want to delete this entire component and all its records?');
 
-    if (isConfirmed) {
-        const purchaseIdsToDelete = Array.from(card.querySelectorAll('tr[data-purchase-id]'))
-            .map(row => row.getAttribute('data-purchase-id'))
-            .filter(Boolean);
+                if (isConfirmed) {
+                    const purchaseIdsToDelete = Array.from(card.querySelectorAll('tr[data-purchase-id]'))
+                        .map(row => row.getAttribute('data-purchase-id'))
+                        .filter(Boolean);
 
-        // If there are no purchase IDs, it's a new, unsaved component.
-        // Just remove it from the DOM.
-        if (purchaseIdsToDelete.length === 0) {
-            card.remove();
-            updateSummaryTotals();
-            return;
-        }
+                    // If there are no purchase IDs, it's a new, unsaved component.
+                    // Just remove it from the DOM.
+                    if (purchaseIdsToDelete.length === 0) {
+                        card.remove();
+                        updateSummaryTotals();
+                        return;
+                    }
 
-        // If it has been saved, send a request to the server.
-        try {
-            const response = await fetch(`http://localhost:3000/purchase-records`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ purchase_ids: purchaseIdsToDelete })
+                    // If it has been saved, send a request to the server.
+                    try {
+                        const response = await fetch(`http://localhost:3000/purchase-records`, {
+                            method: 'DELETE',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ purchase_ids: purchaseIdsToDelete })
+                        });
+                        if (response.ok) {
+                            card.remove();
+                            updateSummaryTotals();
+                            showNotification('Component deleted successfully.', 'success');
+                        } else {
+                            const result = await response.json();
+                            showNotification(`Error: ${result.message}`, 'error');
+                        }
+                    } catch (error) {
+                        showNotification('An error occurred while deleting.', 'error');
+                    }
+                }
             });
-            if (response.ok) {
-                card.remove();
-                updateSummaryTotals();
-                showNotification('Component deleted successfully.', 'success');
-            } else {
-                const result = await response.json();
-                showNotification(`Error: ${result.message}`, 'error');
-            }
-        } catch (error) {
-            showNotification('An error occurred while deleting.', 'error');
-        }
-    }
-});
             saveButton?.addEventListener('click', () => saveSingleRow(rowElement));
 
             setupAutocomplete(rowElement.querySelector('.vendor-name-input'), 'vendor', rowElement);
@@ -551,13 +696,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const items = dropdown.querySelectorAll('.autocomplete-item');
             if (items.length === 0) return;
 
-            if (['ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) {
+            if (['ArrowDown', 'ArrowUp', 'Tab'].includes(e.key)) {
                 e.preventDefault();
                 e.stopPropagation();
 
                 if (e.key === 'ArrowDown') activeIndex = (activeIndex + 1) % items.length;
                 else if (e.key === 'ArrowUp') activeIndex = (activeIndex - 1 + items.length) % items.length;
-                else if (e.key === 'Enter') {
+                else if (e.key === 'Tab') {
                     if (activeIndex > -1) items[activeIndex].click();
                     return;
                 }
@@ -663,13 +808,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const items = dropdown.querySelectorAll('.autocomplete-item');
             if (items.length === 0) return;
 
-            if (['ArrowDown', 'ArrowUp', 'Enter', 'Escape'].includes(e.key)) {
+            if (['ArrowDown', 'ArrowUp', 'Tab', 'Escape'].includes(e.key)) {
                 e.preventDefault();
                 e.stopPropagation();
 
                 if (e.key === 'ArrowDown') activeIndex = (activeIndex + 1) % items.length;
                 else if (e.key === 'ArrowUp') activeIndex = (activeIndex - 1 + items.length) % items.length;
-                else if (e.key === 'Enter') {
+                else if (e.key === 'Tab') {
                     if (activeIndex > -1) items[activeIndex].click();
                     else dropdown.style.display = 'none';
                 } else if (e.key === 'Escape') {
@@ -682,21 +827,30 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const saveSingleRow = async (rowElement) => {
-        const vendorNameInput = rowElement.querySelector('.vendor-name-input');
-        const vendorId = vendorNameInput?.getAttribute('data-vendor-id');
-        const vendorName = vendorNameInput?.value;
-        const mrcNo = rowElement.querySelector('.mrc-no-input')?.value;
-        const tinNo = vendorNameInput?.getAttribute('data-tin-number');
-        const purchaseDate = rowElement.querySelector('.purchase-date-input')?.value;
+        const card = rowElement.closest('.purchase-group-card');
+        const cardId = card.id; // Get the ID of the current card
+
+        const mainRowElement = card.querySelector('.main-row');
+        if (!mainRowElement) {
+            showNotification('Error: Main row not found in card.', 'error');
+            return;
+        }
+
+        // Extract common data from the main row once
+        const mainVendorNameInput = mainRowElement.querySelector('.vendor-name-input');
+        const commonVendorId = mainVendorNameInput?.getAttribute('data-vendor-id');
+        const commonVendorName = mainVendorNameInput?.value;
+        const commonMrcNo = mainRowElement.querySelector('.mrc-no-input')?.value;
+        const commonTinNo = mainVendorNameInput?.getAttribute('data-tin-number');
+        const commonPurchaseDate = mainRowElement.querySelector('.purchase-date-input')?.value;
         
-        const fsNumberRaw = rowElement.querySelector('.fs-number-input')?.value;
-        const fsPrefix = rowElement.querySelector('.fs-prefix')?.textContent || '';
-        const fsNumber = fsNumberRaw ? `${fsPrefix}${fsNumberRaw}` : '';
+        const mainFsNumberRaw = mainRowElement.querySelector('.fs-number-input')?.value;
+        const mainFsPrefix = mainRowElement.querySelector('.fs-prefix')?.textContent || '';
+        const commonFsNumber = mainFsNumberRaw ? `${mainFsPrefix}${mainFsNumberRaw}` : '';
+        const commonStatus = isCurrentlyPostedView ? 'posted' : 'saved';
+        const commonIsDateValid = await isDateInCurrentEthiopianMonth(commonPurchaseDate);
 
-        const status = 'saved';
-        const isDateValid = await isDateInCurrentEthiopianMonth(purchaseDate);
-
-        const extractRecord = (row, isSub = false) => {
+        const extractRecord = (row, isSub = false, commonSharedData) => {
             const quantity = parseFloat(row.querySelector(isSub ? '.sub-quantity' : '.quantity-input')?.value) || 0;
             const unitPrice = parseFloat(row.querySelector(isSub ? '.sub-unit-price' : '.unit-price-input')?.value) || 0;
             const vatOn = row.querySelector(isSub ? '.sub-vat-onoff' : '.vat-onoff-input')?.checked;
@@ -709,7 +863,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (vatOn) {
                 const calculated_vat = base_total * (originalVatPercentage / 100);
-                if (!isDateValid) {
+                if (!commonSharedData.isDateValid) {
                     base_total += calculated_vat;
                 } else {
                     vat_amount = calculated_vat;
@@ -717,32 +871,72 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const total_amount = base_total + vat_amount;
-            const commonData = { vendorId, vendorName, mrcNo, tinNo, purchaseDate, fsNumber, status, base_total, vat_amount, total_amount };
             
             const itemNameInput = row.querySelector(isSub ? '.sub-item-name' : '.item-name-input');
             return {
-                ...commonData,
+                vendorId: commonSharedData.vendorId,
+                vendorName: commonSharedData.vendorName,
+                mrcNo: commonSharedData.mrcNo,
+                tinNo: commonSharedData.tinNo,
+                purchaseDate: commonSharedData.purchaseDate,
+                fsNumber: commonSharedData.fsNumber,
+                status: commonSharedData.status,
+
                 purchaseId: row.getAttribute('data-purchase-id'),
                 itemId: itemNameInput?.getAttribute('data-item-id'),
                 itemName: itemNameInput?.value,
                 unit: row.querySelector(isSub ? '.sub-unit' : '.unit-input')?.value,
                 quantity, unitPrice, vatPercentage: vatPercentageToSave, vatOn,
+                base_total, vat_amount, total_amount,
+                isSubItem: isSub // Add a flag to indicate if it's a sub-item for server processing if needed, although not storing parent_id directly.
             };
         };
     
         const recordsToSave = [];
-        const mainRecord = extractRecord(rowElement, false);
-        if (mainRecord.itemName) recordsToSave.push(mainRecord);
-    
-        let nextRow = rowElement.nextElementSibling;
-        while (nextRow && nextRow.classList.contains('sub-row')) {
-            const subRecord = extractRecord(nextRow, true);
-            if (subRecord.itemName) recordsToSave.push(subRecord);
-            nextRow = nextRow.nextElementSibling;
+        const currentPurchaseIdsInCard = new Set();
+        const purchaseIdsToDelete = [];
+
+        // Collect all currently existing records in this card (including newly added ones without purchase_id)
+        Array.from(card.querySelectorAll('tbody tr')).forEach(row => {
+            const record = extractRecord(row, row.classList.contains('sub-row'), {
+                vendorId: commonVendorId,
+                vendorName: commonVendorName,
+                mrcNo: commonMrcNo,
+                tinNo: commonTinNo,
+                purchaseDate: commonPurchaseDate,
+                fsNumber: commonFsNumber,
+                status: commonStatus,
+                isDateValid: commonIsDateValid
+            });
+            // Only add records that have an item name; empty rows shouldn't be saved
+            if (record.itemName) {
+                recordsToSave.push(record);
+                if (record.purchaseId) {
+                    currentPurchaseIdsInCard.add(record.purchaseId);
+                }
+            }
+        });
+
+        // Determine which records were deleted from the UI
+        const initialIdsForThisCard = initialPurchaseIdsPerCard.get(cardId) || new Set();
+        initialIdsForThisCard.forEach(id => {
+            if (!currentPurchaseIdsInCard.has(id)) {
+                purchaseIdsToDelete.push(id);
+            }
+        });
+        
+        // If it's a brand new card (no purchase_id on main row), and no items are added, delete the card itself.
+        // This scenario might occur if a user adds a new card, then deletes all its items.
+        if (recordsToSave.length === 0 && !rowElement.getAttribute('data-purchase-id')) {
+             card.remove();
+             updateSummaryTotals();
+             showNotification('Empty component removed.', 'info');
+             return;
         }
-    
-        if (recordsToSave.length === 0) {
-            showNotification('Cannot save an empty row. Please add at least one item.', 'warning'); return;
+
+        if (recordsToSave.length === 0 && purchaseIdsToDelete.length === 0) {
+            showNotification('No items to save or delete.', 'warning');
+            return;
         }
     
         for (const record of recordsToSave) {
@@ -750,12 +944,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 showNotification(`Validation failed for "${record.itemName}". Fill all fields, select from suggestions, and ensure quantity is positive.`, 'error'); return;
             }
         }
-    
+        
         try {
             const response = await fetch('http://localhost:3000/save-purchase-records', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(recordsToSave)
+                body: JSON.stringify({ recordsToSave, purchaseIdsToDelete }) // Send both arrays
             });
             const result = await response.json();
             if (response.ok) {
@@ -829,49 +1023,74 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
    syncLogsBtn.addEventListener('click', async (event) => {
-        const button = event.currentTarget;
-        button.disabled = true;
-        showSyncStatus('Starting sync process...', 'loading');
-
-        try {
-            const rows = document.querySelectorAll('#purchase-groups-container .table tbody tr.main-row[data-purchase-id], #purchase-groups-container .table tbody tr.sub-row[data-purchase-id]');
-            const unpostedIds = Array.from(rows).map(row => row.getAttribute('data-purchase-id')).filter(id => id);
-
-            if (unpostedIds.length > 0) {
-                showSyncStatus(`Posting ${unpostedIds.length} records...`, 'loading');
-                const postResponse = await fetch('http://localhost:3000/change-from-saved-to-posted', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ purchase_ids: unpostedIds })
-                });
-                if (!postResponse.ok) {
-                    const postResult = await postResponse.json();
-                    showSyncStatus(`Failed to post: ${postResult.error || postResult.message}`, 'error'); return; 
-                }
-            } else {
-                showNotification("No records to post. Proceeding with log sync.", "info");
-            }
-
-            showSyncStatus('Syncing activity logs...', 'loading');
-            const syncResponse = await fetch('http://localhost:3000/sync-logs', { method: 'POST' });
-            if (!syncResponse.ok) {
-                const syncResult = await syncResponse.json();
-                showSyncStatus(`Log sync failed: ${syncResult.error || syncResult.details}`, 'error'); return;
+    const button = event.currentTarget;
+    
+    // 1. Prompt the user for the Posted Date
+    if(postdate){
+            overlay.style.display = "flex";
+    }});
+    postc.addEventListener('click', ()=>{
+        overlay.style.display = "none";
+    })
+    postconfirm.addEventListener('click',async () =>{
+            const postdatevalue =  postdatepicker.value
+            // 2. Validate the date input
+            // The date is considered valid if the user provided any input (not null or empty)
+            if (!postdatevalue) {
+                showNotification('Sync cancelled. A Posted Date is required.', 'error');
+                return; 
             }
             
-            const syncResult = await syncResponse.json();
-            showSyncStatus(syncResult.message, 'success');
-            reloadTableData();
-            setTimeout(hideSyncStatus, 5000);
+            showSyncStatus('Starting sync process...', 'loading');
 
-        } catch (err) {
-            showSyncStatus('A network error occurred. See console.', 'error');
-            console.error("Sync/Post Error:", err);
-        } finally {
-            button.disabled = false;
-        }
-    });
+            try {
+                const rows = document.querySelectorAll('#purchase-groups-container .table tbody tr.main-row[data-purchase-id], #purchase-groups-container .table tbody tr.sub-row[data-purchase-id]');
+                const unpostedIds = Array.from(rows)
+                    .map(row => row.getAttribute('data-purchase-id'))
+                    .filter(id => id);
 
+                if (unpostedIds.length > 0) {
+                    showSyncStatus(`Posting ${unpostedIds.length} records...`, 'loading');
+                    
+                    // 3. Prepare the request body with the user-provided date
+                    const requestBody = { 
+                        purchase_ids: unpostedIds,
+                        post_date: postdatevalue // <--- The date from the prompt is used here
+                    };
+                    
+                    const postResponse = await fetch('http://localhost:3000/change-from-saved-to-posted', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestBody)
+                    });
+
+                    if (!postResponse.ok) {
+                        const postResult = await postResponse.json();
+                        showSyncStatus(`Failed to post: ${postResult.error || postResult.message}`, 'error');
+                        return;
+                    }
+
+                    showSyncStatus('Records posted successfully!', 'success');
+                    reloadTableData(); 
+
+                } else {
+                    showNotification("No records to post.", "info");
+                    hideSyncStatus();
+                            overlay.style.display = "none";
+
+                }
+                 overlay.style.display = "none";
+
+
+            } catch (err) {
+                showSyncStatus("An error occurred during posting.", 'error');
+                console.error("Sync/Post Error:", err);
+                    overlay.style.display = "none";
+            } finally {
+                button.disabled = false;
+                    overlay.style.display = "none";
+            }
+        });
    const reloadTableData = async (isPostedView = false) => {
         const container = document.getElementById('purchase-groups-container');
         if (!container) return;
@@ -897,6 +1116,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            // Clear the map of initial purchase IDs for this reload
+            initialPurchaseIdsPerCard.clear();
+
             const groupedByFsNumber = records.reduce((acc, record) => {
                 const key = record.fs_number || `new-record-${Date.now()}`;
                 if (!acc[key]) acc[key] = [];
@@ -904,16 +1126,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 return acc;
             }, {});
 
+            let allowPostedEdit = false;
+            if (isPostedView) {
+                allowPostedEdit = await promptForEditCode();
+                if (!allowPostedEdit) {
+                    showNotification('Incorrect code. Editing of posted records is disabled.', 'error');
+                }
+            }
+
             Object.entries(groupedByFsNumber).forEach(([fsNumber, group]) => {
-                const mainRecord = group.find(r => !r.parent_id) || group[0];
-                const subRecords = group.filter(r => r.purchase_id !== mainRecord.purchase_id);
+                // Given no 'parent_id' in the database schema, we assume the first record in the group
+                // is the main record, and subsequent records are its sub-items for display purposes.
+                const mainRecord = group[0]; 
+                const subRecords = group.slice(1); // All records after the first are sub-items
+                const isEditable = !isPostedView || (isPostedView && userRole === 'admin' && allowPostedEdit);
 
                 const groupComponent = document.createElement('div');
                 groupComponent.className = 'purchase-group-card';
+                // Assign a unique ID to the card, preferably derived from FS number if available
+                const cardId = `card-${fsNumber.replace(/[^a-zA-Z0-9]/g, '')}`;
+                groupComponent.id = cardId;
                 
-                // Date handling fix to avoid timezone issues
-                const purchaseDate = new Date(mainRecord.purchase_date);
-                const displayDate = new Date(purchaseDate.getUTCFullYear(), purchaseDate.getUTCMonth(), purchaseDate.getUTCDate()).toLocaleDateString();
+                // Store initial purchase IDs for this card
+                const initialIds = new Set();
+                group.forEach(record => {
+                    if (record.purchase_id) initialIds.add(record.purchase_id);
+                });
+                initialPurchaseIdsPerCard.set(cardId, initialIds);
+
+                // Correct date handling to prevent timezone shifts
+                const purchaseDateStr = mainRecord.purchase_date.split('T')[0]; // Get 'YYYY-MM-DD'
+                const [year, month, day] = purchaseDateStr.split('-');
+                // Construct date as local to ensure correct display
+                const displayDate = new Date(year, month - 1, day).toLocaleDateString();
 
                 groupComponent.innerHTML = `
                     <div class="card-header">
@@ -927,7 +1172,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="summary-item"><span>Total:</span> <strong class="component-grand-total">0.00</strong></div>
                         </div>
                         <div class="header-actions">
-                            ${!isPostedView ? `
+                            ${isEditable ? `
                                 <button class="save-row-btn btn btn-icon" title="Save (Ctrl+S)"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg></button>
                                 <button class="delete-row-btn btn btn-icon btn-danger" title="Delete"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
                             ` : `<span class="posted-label">Posted</span>`}
@@ -958,12 +1203,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
                 
                 const tbody = groupComponent.querySelector('tbody');
-                tbody.insertAdjacentHTML('beforeend', populateRowWithData(mainRecord, !isPostedView));
+                tbody.insertAdjacentHTML('beforeend', populateRowWithData(mainRecord, isEditable));
                 const mainRowElement = tbody.lastElementChild;
-                attachRowEventListeners(mainRowElement, !isPostedView);
+                attachRowEventListeners(mainRowElement, isEditable);
+
+                if (isPostedView && isEditable) {
+                    // Disable date inputs for posted records even in edit mode
+                    const dateInputs = groupComponent.querySelectorAll('.purchase-date-input');
+                    dateInputs.forEach(input => {
+                        input.disabled = true;
+                        input.classList.add('disabled-input');
+                    });
+                }
 
                 subRecords.forEach(subRecord => {
-                    const subRow = populateSubitemRow(mainRowElement, subRecord, !isPostedView);
+                    const subRow = populateSubitemRow(mainRowElement, subRecord, isEditable);
                     subRow.setAttribute('data-purchase-id', subRecord.purchase_id);
                 });
                 
@@ -990,6 +1244,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showNotification('Please select a date to load posted records.', 'warning');
             return;
         }
+        isCurrentlyPostedView = true;
         reloadTableData(true); // Pass true to indicate posted view
         mainActionButtons.style.display = 'none';
         postedDateControls.style.display = 'none';
@@ -997,6 +1252,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     backToWorkspaceBtn.addEventListener('click', () => {
+        isCurrentlyPostedView = false;
         reloadTableData();
         mainActionButtons.style.display = 'inline-flex';
         backToWorkspaceBtn.style.display = 'none';
@@ -1065,6 +1321,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     if(mainRow) window.populateSubitemRow(mainRow);
                 }
             }
+            if (e.ctrlKey && e.key.toLowerCase() === 'v') {
+                e.preventDefault();
+                openModal(addVendorModal);
+            }
             // Shortcut for VAT toggle (Ctrl + F)
             if (e.ctrlKey && e.key.toLowerCase() === 'f') {
                 e.preventDefault();
@@ -1125,7 +1385,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        if (key === 'Enter' || key === ' ') { // Allow Space to toggle checkbox
+        if (key === 'Tab' || key === ' ') { // Allow Space to toggle checkbox
             if (activeElement.type === 'checkbox' && key === ' ') {
                 e.preventDefault();
                 activeElement.checked = !activeElement.checked;
@@ -1134,28 +1394,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 return; // Stop further execution for space on checkbox
             }
 
-            if (key === 'Enter') {
-                e.preventDefault();
-                const focusable = Array.from(currentRow.querySelectorAll('input:not([disabled]), .checkbox:not([disabled])'));
-                const currentIndex = focusable.indexOf(activeElement);
-                const nextIndex = currentIndex + (e.shiftKey ? -1 : 1);
+        if (key === 'Tab') {
+            e.preventDefault();
+            const focusable = Array.from(currentRow.querySelectorAll('input:not([disabled]), .checkbox:not([disabled])'));
+            const currentIndex = focusable.indexOf(activeElement);
+            const nextIndex = currentIndex + (e.shiftKey ? -1 : 1);
 
-                if (nextIndex >= 0 && nextIndex < focusable.length) {
-                    const nextElement = focusable[nextIndex];
-                    nextElement.focus();
-                    if (nextElement.select) nextElement.select();
-                } else if (!e.shiftKey && nextIndex >= focusable.length) {
-                    const nextRow = currentRow.nextElementSibling;
-                    if (nextRow) {
-                        nextRow.querySelector('input:not([disabled]), .checkbox:not([disabled])')?.focus();
-                    } else {
-                        addRowBtn.click();
-                    }
+            if (nextIndex >= 0 && nextIndex < focusable.length) {
+                const nextElement = focusable[nextIndex];
+                nextElement.focus();
+                if (nextElement.select) nextElement.select();
+            } else if (!e.shiftKey && nextIndex >= focusable.length) {
+                const nextRow = currentRow.nextElementSibling;
+                if (nextRow) {
+                    nextRow.querySelector('input:not([disabled]), .checkbox:not([disabled])')?.focus();
+                } else {
+                    addRowBtn.click();
                 }
             }
         }
+        }
 
-        if (key === 'Tab') {
+        if (key === 'Enter') {
             e.preventDefault();
             const currentCard = currentRow.closest('.purchase-group-card');
             const allCards = Array.from(document.querySelectorAll('.purchase-group-card'));

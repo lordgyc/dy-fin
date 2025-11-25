@@ -4,43 +4,33 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>DY Finance – Login</title>
-  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;">
   <link rel="stylesheet" href="./index.css" />
-  <!-- MODIFICATION: Link to the locally installed Font Awesome CSS -->
   <link rel="stylesheet" href="./node_modules/@fortawesome/fontawesome-free/css/all.min.css">
 </head>
 <body>
-  <header class="header">
-    <div class="container header-inner">
-      <a class="logo" href="./index.html" aria-label="DY Finance Home">
-        <img src="./assets/dy-finance-logo.svg" alt="DY Finance" />
-      </a>
-      <nav class="nav">
-      </nav>
-    </div>
-  </header>
   <main class="container">
     <div class="grid">
       <section class="card">
         <div class="decor" aria-hidden="true"></div>
         <div class="card-header">
-          <h1 class="card-title">Login</h1>
-          <p class="card-desc">Login to access your workspace</p>
+          <h1 class="card-title">Welcome Back</h1>
+          <p class="card-desc">Login to access your financial workspace.</p>
         </div>
         <div class="card-body">
           <form>
-            <div style="margin-bottom:1rem">
+            <div class="form-group">
               <label class="label" for="username">Username</label>
               <input class="input" id="username" name="username" placeholder="Enter your username" autocomplete="username" />
             </div>
-            <div style="margin-bottom:1rem">
+            <div class="form-group">
               <label class="label" for="password">Password</label>
               <input class="input" id="password" name="password" type="password" placeholder="Enter your password" autocomplete="current-password" />
             </div>
             <p id="login-status" class="error" style="display:none"></p>
             <div id="loading-spinner"></div>
-            <div class="row">
-              <p class="card-desc">enter your credential</p>
+            <div class="form-footer">
+              <p class="card-desc" style="margin: 0;">Enter your credentials.</p>
               <button class="btn btn-primary" type="submit" id="loginBtn">Login</button>
             </div>
           </form>
@@ -49,33 +39,26 @@
 
       <section class="card">
         <div class="card-header">
-          <h2 class="card-title">Preview</h2>
+          <h2 class="card-title">Application Access</h2>
+          <p class="card-desc">Login to unlock access to these pages.</p>
         </div>
         <div class="card-body">
           <div class="preview-grid">
-            
-            <!-- MODIFICATION: The entire card is now a link -->
             <a id="wsLink" class="preview-card-link">
               <div class="icon-wrapper"><i class="fas fa-briefcase"></i></div>
               <h3>Workspace</h3>
               <span class="badge-lock" id="wsLock">🔒</span>
             </a>
-
-            <!-- MODIFICATION: The entire card is now a link -->
             <a id="rpLink" class="preview-card-link">
               <div class="icon-wrapper"><i class="fas fa-chart-line"></i></div>
               <h3>Reports</h3>
               <span class="badge-lock" id="rpLock">🔒</span>
             </a>
-
           </div>
         </div>
       </section>
     </div>
   </main>
-  
-
   <script src="renderer.js"></script>
-
 </body>
 </html>

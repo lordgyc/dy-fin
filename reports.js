@@ -3,6 +3,7 @@
 // - All Ethiopian calendar logic has been removed from the client-side.
 // - All date conversions are now handled by making async calls to the server.
 // - Functions that rely on date conversions (switchView, report generation) are now async.
+const { ipcRenderer, shell } = require('electron');
 
 document.addEventListener('DOMContentLoaded', () => {
     // --- GENERAL & NAVIGATION ELEMENTS ---
@@ -69,6 +70,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const mrcContainer = document.getElementById('mrcContainer');
     const addMrcBtn = document.getElementById('addMrcBtn');
     const vendorsTableBody = document.querySelector('#vendors-table tbody');
+
+    // --- BACKUP MANAGEMENT ELEMENTS ---
+    const backupPathInput = document.getElementById('backupPathInput');
+    const browseBackupPathBtn = document.getElementById('browseBackupPathBtn');
+    const performBackupBtn = document.getElementById('performBackupBtn');
+    const backupStatusMessage = document.getElementById('backupStatusMessage');
     
     // --- ITEM & CATEGORY MANAGEMENT ELEMENTS ---
     const itemsTableBody = document.querySelector('#items-table tbody');
@@ -306,6 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`http://localhost:3000/reports/vat?startDate=${startDate}&endDate=${endDate}`);
             const reportData = await response.json();
+            console.log(reportData)
             if (response.ok) renderVatReport(reportData);
             else showNotification(`Error fetching VAT report: ${reportData.error}`);
         } catch (error) {
@@ -328,22 +336,24 @@ document.addEventListener('DOMContentLoaded', () => {
             const baseTotal = (record.total_amount || 0) - (record.vat_amount || 0);
             
             const date = new Date(record.purchase_date);
-            const formattedDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()).toLocaleDateString();
+            const formattedDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
 
             const row = vatReportTableBody.insertRow();
             row.innerHTML = `
-                <td>${record.vendor_name}</td>
                 <td>${record.tin_number}</td>
-                <td>${record.mrc_number || ''}</td>
+                <td>${record.vendor_name}</td>
                 <td>${formattedDate}</td>
+                <td>${record.mrc_number || ''}</td>
                 <td>${record.fs_number || ''}</td>
-                <td>${record.unit || ''}</td>
                 <td>${record.item_name}</td>
                 <td class="is-numeric">${record.quantity}</td>
                 <td class="is-numeric">${(record.unit_price || 0).toFixed(2)}</td>
-                <td class="is-numeric">${record.vat_percentage || 0}%</td>
-                <td class="is-numeric">${(record.vat_amount || 0).toFixed(2)}</td>
                 <td class="is-numeric">${baseTotal.toFixed(2)}</td>
+                <td class="is-numeric">${(record.vat_amount || 0).toFixed(2)}</td>
                 <td class="is-numeric">${(record.total_amount || 0).toFixed(2)}</td>
             `;
             totalVat += record.vat_amount || 0;
@@ -371,73 +381,49 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     generateSummaryPdfBtn?.addEventListener('click', async () => {
-    const etYear = parseInt(summaryEthiopianYearInput.value, 10);
-    const etMonth = parseInt(summaryEthiopianMonthSelect.value, 10);
+        const etYear = parseInt(summaryEthiopianYearInput.value, 10);
+        const etMonth = parseInt(summaryEthiopianMonthSelect.value, 10);
 
-    if (!etYear || isNaN(etYear)) {
-        showNotification('Please enter a valid Ethiopian year.');
-        return;
-    }
-    
-    const range = await fetchGregorianRange(etYear, etMonth);
-    if (!range) {
-        showNotification('Could not determine date range to generate PDF.');
-        return;
-    }
+        if (!etYear || isNaN(etYear)) {
+            showNotification('Please enter a valid Ethiopian year.');
+            return;
+        }
+        
+        const range = await fetchGregorianRange(etYear, etMonth);
+        if (!range) {
+            showNotification('Could not determine date range to generate PDF.');
+            return;
+        }
 
-    try {
         const url = `http://localhost:3000/export/summary-pdf?startDate=${range.startDate}&endDate=${range.endDate}&etYear=${etYear}&etMonth=${etMonth}`;
-        const response = await fetch(url);
-
-        if (!response.ok) {
-            throw new Error(`Server responded with ${response.status}: ${await response.text()}`);
+        const filename = `Summary_Report_${etYear}-${etMonth}.pdf`;
+        
+        ipcRenderer.send('print-to-pdf', { url, filename });
+    });
+    generateJvPdfBtn?.addEventListener('click', () => {
+        const date = singleDateInput.value;
+        if (!date) {
+            showNotification("Please select a date first.");
+            return;
         }
+        const url = `http://localhost:3000/export/jv-pdf?singledate=${date}`;
+        const filename = `JV_Report_${date}.pdf`;
+        ipcRenderer.send('print-to-pdf', { url, filename });
+    });
 
-        const blob = await response.blob();
-        const downloadUrl = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = downloadUrl;
-        a.download = `Summary_Report_${etYear}-${etMonth}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(downloadUrl);
-        a.remove();
-
-    } catch (error) {
-        console.error('Summary PDF Download Error:', error);
-        showNotification('Failed to download Summary PDF. Please check server logs.');
-    }
-});
-    generateJvPdfBtn?.addEventListener('click', async () => {
-    const date = singleDateInput.value;
-    if (!date) {
-        showNotification("Please select a date first.");
-        return;
-    }
-
-    try {
-        const response = await fetch(`http://localhost:3000/export/jv-pdf?singledate=${date}`);
-        if (!response.ok) {
-            throw new Error(`Server responded with ${response.status}: ${await response.text()}`);
+    // --- PDF PRINTING IPC ---
+    ipcRenderer.on('print-to-pdf-complete', (event, { success, path, error }) => {
+        if (success) {
+            showNotification(`PDF saved successfully to ${path}`);
+            // Optionally, open the file
+            shell.openPath(path).catch(err => {
+                console.error('Failed to open PDF:', err);
+                showNotification('PDF saved, but failed to open automatically.');
+            });
+        } else {
+            showNotification(`Failed to save PDF: ${error}`);
         }
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `JV_Report_${date}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        a.remove();
-
-    } catch (error) {
-        console.error('PDF Download Error:', error);
-        showNotification('Failed to download PDF. Please check server logs.');
-    }
-});
+    });
 
     exportVatReportBtn?.addEventListener('click', async () => {
         const etYear = parseInt(ethiopianYearInput.value, 10);
@@ -543,98 +529,123 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderSummaryReport(reportData, startDate, endDate) {
-        summaryReportTableHead.innerHTML = '<th>Date</th>';
-        summaryReportTableBody.innerHTML = '';
-        const summaryReportTable = document.getElementById('summary-report-table');
-        let summaryReportTableFoot = summaryReportTable.querySelector('tfoot');
-        if (summaryReportTableFoot) {
-            summaryReportTableFoot.innerHTML = '';
-        } else {
-            summaryReportTableFoot = document.createElement('tfoot');
-            summaryReportTable.appendChild(summaryReportTableFoot);
-        }
+function renderSummaryReport(reportData, startDate, endDate) {
+    console.log(startDate, endDate);
 
-        const formatDate = (date) => date.toISOString().split('T')[0];
+    summaryReportTableHead.innerHTML = '<th>Date</th>';
+    summaryReportTableBody.innerHTML = '';
 
-        const allDatesInMonth = [];
-        let currentDate = new Date(startDate + 'T00:00:00');
-        const lastDate = new Date(endDate + 'T00:00:00');
+    const summaryReportTable = document.getElementById('summary-report-table');
+    let summaryReportTableFoot = summaryReportTable.querySelector('tfoot');
 
-        while (currentDate <= lastDate) {
-            allDatesInMonth.push(formatDate(currentDate));
-            currentDate.setDate(currentDate.getDate() + 1);
-        }
+    if (summaryReportTableFoot) {
+        summaryReportTableFoot.innerHTML = '';
+    } else {
+        summaryReportTableFoot = document.createElement('tfoot');
+        summaryReportTable.appendChild(summaryReportTableFoot);
+    }
 
-        const uniqueItems = [...new Set(reportData.map(record => record.item_name))];
-        allUniqueItems = uniqueItems.sort();
-        
-        allUniqueItems.forEach(item => summaryReportTableHead.innerHTML += `<th>${item}</th>`);
-        summaryReportTableHead.innerHTML += `<th class="is-numeric">Total VAT</th>`;
+    // --- LOCAL DATE UTILITIES (NO UTC SHIFT) ---
+    function toLocalDate(d) {
+        const [y, m, day] = d.split('-').map(Number);
+        return new Date(y, m - 1, day); // local date, not UTC
+    }
 
-        const columnTotals = { totalVat: 0 };
-        allUniqueItems.forEach(item => columnTotals[item] = 0);
+    function formatDate(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
 
-        if (!reportData || reportData.length === 0) {
-            allDatesInMonth.forEach(date => {
-                let rowHtml = `<td>${new Date(date + 'T00:00:00').toLocaleDateString()}</td>`;
-                allUniqueItems.forEach(() => {
-                    rowHtml += `<td class="is-numeric">-</td>`;
-                });
-                rowHtml += `<td class="is-numeric">-</td>`;
-                summaryReportTableBody.innerHTML += `<tr>${rowHtml}</tr>`;
-            });
-            // Render footer with zeros/dashes even if there's no data
-            let footerHtml = `<td><strong>Total</strong></td>`;
-            allUniqueItems.forEach(() => footerHtml += `<td class="is-numeric"><strong>-</strong></td>`);
-            footerHtml += `<td class="is-numeric"><strong>-</strong></td>`;
-            summaryReportTableFoot.innerHTML = `<tr>${footerHtml}</tr>`;
-            return;
-        }
+    const allDatesInMonth = [];
+    let currentDate = toLocalDate(startDate);
+    const lastDate = toLocalDate(endDate);
 
-        currentReportData = reportData;
-        
-        const groupedByDate = currentReportData.reduce((acc, record) => {
-            const date = record.purchase_date;
-            if (!acc[date]) {
-                acc[date] = { items: {}, dailyTotalVat: 0 };
-            }
-            acc[date].items[record.item_name] = (acc[date].items[record.item_name] || 0) + record.base_total;
-            acc[date].dailyTotalVat += record.total_vat;
-            return acc;
-        }, {});
+    // Build date range
+    while (currentDate <= lastDate) {
+        allDatesInMonth.push(formatDate(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+    }
 
+    const uniqueItems = [...new Set(reportData.map(record => record.item_name))];
+    allUniqueItems = uniqueItems.sort();
+
+    // Table header
+    allUniqueItems.forEach(item => summaryReportTableHead.innerHTML += `<th>${item}</th>`);
+    summaryReportTableHead.innerHTML += `<th class="is-numeric">Total VAT</th>`;
+
+    const columnTotals = { totalVat: 0 };
+    allUniqueItems.forEach(item => columnTotals[item] = 0);
+
+    if (!reportData || reportData.length === 0) {
+        // No data → render empty rows
         allDatesInMonth.forEach(date => {
-            const dateData = groupedByDate[date];
-            let rowHtml = `<td>${new Date(date + 'T00:00:00').toLocaleDateString()}</td>`;
-
-            if (dateData) {
-                allUniqueItems.forEach(item => {
-                    const baseTotal = dateData.items[item] || 0;
-                    columnTotals[item] += baseTotal;
-                    rowHtml += `<td class="is-numeric">${baseTotal > 0 ? baseTotal.toFixed(2) : '-'}</td>`;
-                });
-                columnTotals.totalVat += dateData.dailyTotalVat;
-                rowHtml += `<td class="is-numeric">${dateData.dailyTotalVat > 0 ? dateData.dailyTotalVat.toFixed(2) : '-'}</td>`;
-            } else {
-                allUniqueItems.forEach(() => {
-                    rowHtml += `<td class="is-numeric">-</td>`;
-                });
+            let rowHtml = `<td>${toLocalDate(date).toLocaleDateString()}</td>`;
+            allUniqueItems.forEach(() => {
                 rowHtml += `<td class="is-numeric">-</td>`;
-            }
+            });
+            rowHtml += `<td class="is-numeric">-</td>`;
             summaryReportTableBody.innerHTML += `<tr>${rowHtml}</tr>`;
         });
 
-        // Build and render the footer row
         let footerHtml = `<td><strong>Total</strong></td>`;
-        allUniqueItems.forEach(item => {
-            const total = columnTotals[item];
-            footerHtml += `<td class="is-numeric"><strong>${total > 0 ? total.toFixed(2) : '-'}</strong></td>`;
-        });
-        const grandTotalVat = columnTotals.totalVat;
-        footerHtml += `<td class="is-numeric"><strong>${grandTotalVat > 0 ? grandTotalVat.toFixed(2) : '-'}</strong></td>`;
+        allUniqueItems.forEach(() => footerHtml += `<td class="is-numeric"><strong>-</strong></td>`);
+        footerHtml += `<td class="is-numeric"><strong>-</strong></td>`;
         summaryReportTableFoot.innerHTML = `<tr>${footerHtml}</tr>`;
+        return;
     }
+
+    currentReportData = reportData;
+
+    // Group data by date (dates already stored as 'YYYY-MM-DD')
+    const groupedByDate = currentReportData.reduce((acc, record) => {
+        const date = record.purchase_date; // already ISO string
+        if (!acc[date]) {
+            acc[date] = { items: {}, dailyTotalVat: 0 };
+        }
+        acc[date].items[record.item_name] =
+            (acc[date].items[record.item_name] || 0) + record.base_total;
+        acc[date].dailyTotalVat += record.total_vat;
+        return acc;
+    }, {});
+
+    // Render all rows
+    allDatesInMonth.forEach(date => {
+        const dateData = groupedByDate[date];
+        let rowHtml = `<td>${toLocalDate(date).toLocaleDateString()}</td>`;
+
+        if (dateData) {
+            allUniqueItems.forEach(item => {
+                const baseTotal = dateData.items[item] || 0;
+                columnTotals[item] += baseTotal;
+                rowHtml += `<td class="is-numeric">${baseTotal > 0 ? baseTotal.toFixed(2) : '-'}</td>`;
+            });
+
+            columnTotals.totalVat += dateData.dailyTotalVat;
+            rowHtml += `<td class="is-numeric">${dateData.dailyTotalVat > 0 ? dateData.dailyTotalVat.toFixed(2) : '-'}</td>`;
+        } else {
+            allUniqueItems.forEach(() => {
+                rowHtml += `<td class="is-numeric">-</td>`;
+            });
+            rowHtml += `<td class="is-numeric">-</td>`;
+        }
+
+        summaryReportTableBody.innerHTML += `<tr>${rowHtml}</tr>`;
+    });
+
+    // Footer totals
+    let footerHtml = `<td><strong>Total</strong></td>`;
+    allUniqueItems.forEach(item => {
+        const total = columnTotals[item];
+        footerHtml += `<td class="is-numeric"><strong>${total > 0 ? total.toFixed(2) : '-'}</strong></td>`;
+    });
+
+    const grandTotalVat = columnTotals.totalVat;
+    footerHtml += `<td class="is-numeric"><strong>${grandTotalVat > 0 ? grandTotalVat.toFixed(2) : '-'}</strong></td>`;
+
+    summaryReportTableFoot.innerHTML = `<tr>${footerHtml}</tr>`;
+}
 
     generateSummaryReportBtn?.addEventListener('click', async () => {
         const etYear = parseInt(summaryEthiopianYearInput.value, 10);
@@ -775,7 +786,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const baseTotal = (record.total_amount || 0) - (record.vat_amount || 0);
             
             const date = new Date(record.purchase_date);
-            const formattedDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()).toLocaleDateString();
+            const formattedDate = new Date(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
 
             const row = yearlyReportTableBody.insertRow();
             row.innerHTML = `
@@ -783,12 +798,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${record.tin_number}</td>
                 <td>${record.mrc_number || ''}</td>
                 <td>${formattedDate}</td>
-                <td>${record.fs_number || ''}</td>
-                <td>${record.unit || ''}</td>
+                <td>${record.fs_number || ''}</td>  
                 <td>${record.item_name}</td>
                 <td class="is-numeric">${record.quantity}</td>
                 <td class="is-numeric">${(record.unit_price || 0).toFixed(2)}</td>
-                <td class="is-numeric">${record.vat_percentage || 0}%</td>
                 <td class="is-numeric">${(record.vat_amount || 0).toFixed(2)}</td>
                 <td class="is-numeric">${baseTotal.toFixed(2)}</td>
                 <td class="is-numeric">${(record.total_amount || 0).toFixed(2)}</td>
@@ -819,29 +832,63 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const range = await fetchGregorianYearRange(etYear);
         if (range) {
-            fetchYearlyReport(subcategoryId, range.startDate, range.endDate);
+            const startDate = `${range.startDate.year}-${String(range.startDate.month).padStart(2, '0')}-${String(range.startDate.day).padStart(2, '0')}`;
+            const endDate = `${range.endDate.year}-${String(range.endDate.month).padStart(2, '0')}-${String(range.endDate.day).padStart(2, '0')}`;
+            console.log(startDate,endDate)
+            fetchYearlyReport(subcategoryId, startDate, endDate);
         }
     });
+    // Function to format a single date part as YYYY-DD-MM
+function formatToYYYYDDMM(datePart) {
+    // Helper to ensure month/day is padded with a leading zero if needed
+    const pad = (num) => String(num).padStart(2, '0');
+    
+    if (!datePart) return ''; 
+    
+    const { day, month, year } = datePart;
+    
+    const formattedMonth = pad(month);
+    const formattedDay = pad(day);
+    
+    // Format the date as YYYY-DD-MM (Year, then Day, then Month)
+    return `${year}-${formattedDay}-${formattedMonth}`;
+}
 
-    exportYearlyReportBtn?.addEventListener('click', async () => {
-        const subcategoryId = yearlySubcategorySelect.value;
-        const etYear = parseInt(yearlyEthiopianYearInput.value, 10);
+// --- Your Event Listener with Integrated Formatting ---
 
-        if (!subcategoryId) {
-            showNotification('Please select a subcategory to export.');
-            return;
-        }
+exportYearlyReportBtn?.addEventListener('click', async () => {
+    const subcategoryId = yearlySubcategorySelect.value;
+    const etYear = parseInt(yearlyEthiopianYearInput.value, 10);
 
-        if (!etYear || isNaN(etYear)) {
-            showNotification('Please enter a valid Ethiopian year to export.');
-            return;
-        }
+    if (!subcategoryId) {
+        showNotification('Please select a subcategory to export.');
+        return;
+    }
 
-        const range = await fetchGregorianYearRange(etYear);
-        if (range) {
-            window.location.href = `http://localhost:3000/export/yearly-report?subcategory_id=${subcategoryId}&startDate=${range.startDate}&endDate=${range.endDate}&etYear=${etYear}`;
-        }
-    });
+    if (!etYear || isNaN(etYear)) {
+        showNotification('Please enter a valid Ethiopian year to export.');
+        return;
+    }
+
+    // 1. Fetch the range object
+    const range = await fetchGregorianYearRange(etYear);
+    
+    if (range) {
+        console.log("Original Range Object:", range);
+        
+        // 2. Format the startDate and endDate properties to YYYY-DD-MM
+        const formattedStartDate = formatToYYYYDDMM(range.startDate);
+        const formattedEndDate = formatToYYYYDDMM(range.endDate);
+        
+        console.log("Formatted Start Date (YYYY-DD-MM):", formattedStartDate);
+        console.log("Formatted End Date (YYYY-DD-MM):", formattedEndDate);
+        
+        // 3. Use the formatted dates in the URL
+        // Example with original dates (7/7/2025 and 6/7/2026):
+        // ...&startDate=2025-07-07&endDate=2026-06-07... (Note: day and month are now swapped)
+        window.location.href = `http://localhost:3000/export/yearly-report?subcategory_id=${subcategoryId}&startDate=${formattedStartDate}&endDate=${formattedEndDate}&etYear=${etYear}`;
+    }
+});
 
     // --- REFACTORED MANAGEMENT LOGIC ---
     
@@ -859,10 +906,60 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadCategories();
                 loadItems(); // Initially load with no filters
             }
+            if(targetTab === 'backup-tab') {
+                // Optionally load last saved path or clear message
+                backupStatusMessage.textContent = '';
+            }
         });
     });
 
-    // --- VENDOR MANAGEMENT ---
+    // --- BACKUP MANAGEMENT LOGIC ---
+    browseBackupPathBtn?.addEventListener('click', () => {
+        ipcRenderer.send('select-directory');
+    });
+
+    ipcRenderer.on('selected-directory', (event, path) => {
+        if (path) {
+            backupPathInput.value = path;
+        }
+    });
+
+            performBackupBtn?.addEventListener('click', async () => {
+                const backupPath = backupPathInput.value.trim();
+                if (!backupPath) {
+                    showNotification('Please specify a backup directory path.');
+                    return;
+                }
+
+                backupStatusMessage.textContent = 'Performing backup...';
+                backupStatusMessage.style.color = 'orange';
+
+                try {
+                    const response = await fetch('http://localhost:3000/backup-database', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ backupPath }),
+                    });
+                    const result = await response.json();
+                    if (response.ok) {
+                        backupStatusMessage.textContent = `Backup successful: ${result.message}`;
+                        backupStatusMessage.style.color = 'green';
+                        showNotification(`Backup successful: ${result.message}`);
+                    } else {
+                        backupStatusMessage.textContent = `Backup failed: ${result.error}`;
+                        backupStatusMessage.style.color = 'red';
+                        showNotification(`Backup failed: ${result.error}`);
+                    }
+                } catch (error) {
+                    backupStatusMessage.textContent = `Network error during backup: ${error.message}`;
+                    backupStatusMessage.style.color = 'red';
+                    showNotification(`Network error during backup: ${error.message}`);
+                }
+            });
+            
+            // --- BACKUP MANAGEMENT END ---
+
+            // --- VENDOR MANAGEMENT ---
     openVendorModalBtn?.addEventListener('click', () => openModal(vendorModal));
 
     addMrcBtn.addEventListener('click', () => {

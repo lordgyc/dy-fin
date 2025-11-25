@@ -71,9 +71,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 showLoginStatus(data.message, false);
                 sessionStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('userRole', data.user.role); // Store user role
             } else {
                 showLoginStatus(data.message || 'Login failed', true);
                 sessionStorage.setItem('isLoggedIn', 'false');
+                localStorage.removeItem('userRole'); // Clear role on failed login
             }
         } catch (error) {
             console.error('Error during login:', error);

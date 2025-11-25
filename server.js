@@ -5,7 +5,6 @@ const path = require('path');
 const XLSX = require('xlsx');
 const { v4: uuidv4 } = require('uuid'); // Import uuid
 const { sendLogToTelegram, fetchLogsFromTelegram } = require('./telegramBot'); // Import Telegram bot functions
-const puppeteer = require('puppeteer');
 const fs = require('fs'); // Import the file system module
 
 module.exports = (userDataPath) => {
@@ -23,7 +22,6 @@ module.exports = (userDataPath) => {
   app.use(cors());
   app.use(express.json());
   app.use(express.static(path.join(__dirname, '.'))); // Serve static files from the current directory
-
   // Construct the database path using userDataPath
   const dbPath = path.join(userDataPath, 'finance.db');
   console.log('Database path:', dbPath);
@@ -863,23 +861,22 @@ app.get('/vendors', (req, res) => {
 
        const sql = `
         SELECT
-            v.vendor_name AS "Vendor Name", 
             v.tin_number AS "TIN No",
+            v.vendor_name AS "Vendor Name", 
+            strftime('%d/%m/%Y', pr.purchase_date) AS "Purchase Date",
             pr.mrc_number AS "MRC No",
-            pr.purchase_date AS "Purchase Date",
             pr.fs_number AS "FS Number",
             i.item_name AS "Item Name",
             pr.quantity AS "Quantity", 
             pr.unit_price AS "Unit Price", 
-            pr.vat_percentage AS "VAT %",
-            pr.vat_amount AS "VAT Amount",
             (pr.total_amount - COALESCE(pr.vat_amount, 0)) AS "Base Total",
+            pr.vat_amount AS "VAT Amount",
             pr.total_amount AS "Total Amount"
         FROM Purchase_Records pr
         JOIN Vendors v ON pr.vendor_id = v.vendor_id
         JOIN Items i ON pr.item_id = i.item_id
         WHERE DATE(pr.posted_date) BETWEEN ? AND ? AND pr.vat_amount > 0
-        ORDER BY v.vendor_name, pr.posted_date;
+        ORDER BY v.tin_number, pr.purchase_date;
     `;
 
     db.all(sql, [startDate, endDate], (err, rows) => {
@@ -924,8 +921,7 @@ app.get('/vendors', (req, res) => {
 
     if (!subcategory_id || !startDate || !endDate) {
         return res.status(400).send('Subcategory ID, start date, and end date are required for export.');
-    }
-
+    } 
     // First, get the subcategory name for the filename
     db.get(`SELECT subcategory_name FROM Subcategories WHERE subcategory_id = ?`, [subcategory_id], (nameErr, subcategory) => {
         if (nameErr) {
@@ -941,22 +937,20 @@ app.get('/vendors', (req, res) => {
                 v.vendor_name AS "Vendor Name", 
                 v.tin_number AS "TIN No",
                 pr.mrc_number AS "MRC No",
-                pr.purchase_date AS "Purchase Date",
+                strftime('%d/%m/%Y', pr.purchase_date) AS "Purchase Date",
                 pr.fs_number AS "FS Number",
-                i.item_name AS "Item Name",
+                i.item_name AS "Item Name", 
                 pr.quantity AS "Quantity", 
                 pr.unit_price AS "Unit Price", 
-                pr.vat_percentage AS "VAT %",
                 pr.vat_amount AS "VAT Amount",
                 (pr.total_amount - COALESCE(pr.vat_amount, 0)) AS "Base Total",
                 pr.total_amount AS "Total Amount"
             FROM Purchase_Records pr
             JOIN Vendors v ON pr.vendor_id = v.vendor_id
             JOIN Items i ON pr.item_id = i.item_id
-            WHERE i.subcategory_id = ? 
-              AND DATE(pr.posted_date) BETWEEN ? AND ?
-              AND pr.vat_amount > 0
-            ORDER BY pr.posted_date, v.vendor_name;
+          WHERE i.subcategory_id = ? 
+            AND DATE(pr.posted_date) BETWEEN ? AND ?
+          ORDER BY pr.posted_date, v.vendor_name;
         `;
 
         db.all(sql, [subcategory_id, startDate, endDate], (err, rows) => {
@@ -969,14 +963,30 @@ app.get('/vendors', (req, res) => {
                 // 1. Create a new workbook and a worksheet
                 const workbook = XLSX.utils.book_new();
                 const worksheet = XLSX.utils.json_to_sheet(rows);
+                console
+                // 2. Set column widths for better readability
+                const wscols = [
+                    {wch: 25}, // Vendor Name
+                    {wch: 15}, // TIN No
+                    {wch: 15}, // MRC No
+                    {wch: 15}, // Purchase Date
+                    {wch: 15}, // FS Number
+                    {wch: 25}, // Item Name
+                    {wch: 10}, // Quantity
+                    {wch: 12}, // Unit Price
+                    {wch: 12}, // VAT Amount
+                    {wch: 12}, // Base Total
+                    {wch: 15}  // Total Amount
+                ];
+                worksheet['!cols'] = wscols;
 
-                // 2. Append the worksheet to the workbook
+                // 3. Append the worksheet to the workbook
                 XLSX.utils.book_append_sheet(workbook, worksheet, 'Yearly Report');
 
-                // 3. Generate a buffer (a temporary binary representation of the file)
+                // 4. Generate a buffer
                 const buffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'buffer' });
 
-                // 4. Set headers to tell the browser to download the file
+                // 5. Set headers to tell the browser to download the file
                 res.setHeader(
                     'Content-Disposition',
                     `attachment; filename="Yearly_Report_${subcategoryName}_${fileNameYear}.xlsx"`
@@ -986,7 +996,7 @@ app.get('/vendors', (req, res) => {
                     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
                 );
 
-                // 5. Send the file buffer as the response
+                // 6. Send the file buffer as the response
                 res.send(buffer);
 
             } catch (error) {
@@ -1036,109 +1046,139 @@ app.get('/vendors', (req, res) => {
   });
 
   // *** START: UPDATED AND FIXED ENDPOINT ***
-  // Endpoint to save or update purchase records
+  // Endpoint to save or update purchase records and delete specified records
   app.post('/save-purchase-records', async (req, res) => {
-      const records = req.body;
-      if (!Array.isArray(records) || records.length === 0) {
-          return res.status(400).json({ message: 'Invalid or empty records data provided.' });
+      const { recordsToSave, purchaseIdsToDelete } = req.body;
+
+      if (!Array.isArray(recordsToSave) && !Array.isArray(purchaseIdsToDelete)) {
+          return res.status(400).json({ message: 'Invalid request body. Expects arrays for recordsToSave and/or purchaseIdsToDelete.' });
       }
 
-      // Use a separate function to process each record
-      const processRecord = (record) => {
-          return new Promise(async (resolve, reject) => {
-              // --- Auto-create Vendor/Item if they don't exist ---
-              let vendorId = record.vendorId;
-              if (!vendorId && record.vendorName) {
-                  try {
-                      const newVendor = await new Promise((res, rej) => {
-                          const newId = uuidv4();
-                          // First, try to insert. If it fails due to UNIQUE constraint, do nothing.
-                          db.run('INSERT INTO Vendors (vendor_id, vendor_name, tin_number) VALUES (?, ?, ?)', [newId, record.vendorName, record.tinNo], function(err) {
-                              if (err && err.code !== 'SQLITE_CONSTRAINT') {
-                                  return rej(err);
-                              }
-                              // Always query for the vendor by TIN to get the correct ID, whether it was just inserted or already existed.
-                              db.get('SELECT vendor_id FROM Vendors WHERE tin_number = ?', [record.tinNo], (err, row) => {
-                                  if (err) return rej(err);
-                                  res(row ? row.vendor_id : null);
+      db.serialize(() => {
+          db.run('BEGIN TRANSACTION');
+          const allPromises = [];
+
+          // 1. Process records to delete
+          if (purchaseIdsToDelete && purchaseIdsToDelete.length > 0) {
+              const deletePromises = purchaseIdsToDelete.map(purchase_id => {
+                  return new Promise((resolve, reject) => {
+                      db.get(`SELECT * FROM Purchase_Records WHERE purchase_id = ?`, [purchase_id], (err, oldRecord) => {
+                          if (err) return reject(new Error(`Error fetching record ${purchase_id} for deletion logging: ${err.message}`));
+                          if (!oldRecord) return resolve({ id: purchase_id, status: 'not found' }); // Already deleted or never existed, just resolve.
+
+                          db.run(`DELETE FROM Purchase_Records WHERE purchase_id = ?`, [purchase_id], function(deleteErr) {
+                              if (deleteErr) return reject(new Error(`Error deleting record ${purchase_id}: ${deleteErr.message}`));
+                              
+                              // Log the activity
+                              const log_id = uuidv4();
+                              const timestamp = new Date().toISOString();
+                              db.run(`INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data) VALUES (?, ?, 'DELETE', 'Purchase_Records', ?, ?)`, [log_id, timestamp, purchase_id, JSON.stringify(oldRecord)], (logErr) => {
+                                  if (logErr) console.error(`Error inserting delete log for ${purchase_id} into Activity_Logs:`, logErr.message);
+                                  resolve({ id: purchase_id, status: 'deleted' });
                               });
                           });
                       });
-                      vendorId = newVendor;
-                  } catch (err) { return reject(err); }
-              }
+                  });
+              });
+              allPromises.push(...deletePromises);
+          }
 
-              let itemId = record.itemId;
-              if (!itemId && record.itemName) {
-                  try {
-                      const newItem = await new Promise((res, rej) => {
-                          const newId = uuidv4();
-                          // Using 'default-category-id' as a placeholder since category isn't selected in the UI.
-                          // In a real application, you'd want a more robust way to handle this.
-                          db.run('INSERT INTO Items (item_id, item_name, category_id, unit_price) VALUES (?, ?, ?, ?)', [newId, record.itemName, 'default-category-id', record.unitPrice], function(err) {
-                             if(err && err.code !== 'SQLITE_CONSTRAINT') return rej(err);
-                             db.get('SELECT item_id FROM Items WHERE item_name = ?', [record.itemName], (err, row) => {
-                                 if (err) return rej(err);
-                                 res(row ? row.item_id : null);
-                             });
+          // 2. Process records to save/update
+          if (recordsToSave && recordsToSave.length > 0) {
+              const savePromises = recordsToSave.map(record => {
+                  return new Promise(async (resolve, reject) => {
+                      // --- Auto-create Vendor/Item if they don't exist ---
+                      let vendorId = record.vendorId;
+                      if (!vendorId && record.vendorName) {
+                          try {
+                              const newVendorId = await new Promise((res, rej) => {
+                                  const newId = uuidv4();
+                                  db.run('INSERT OR IGNORE INTO Vendors (vendor_id, vendor_name, tin_number) VALUES (?, ?, ?)', [newId, record.vendorName, record.tinNo], function(err) {
+                                      if (err) return rej(err);
+                                      db.get('SELECT vendor_id FROM Vendors WHERE tin_number = ?', [record.tinNo], (err, row) => {
+                                          if (err) return rej(err);
+                                          res(row ? row.vendor_id : null);
+                                      });
+                                  });
+                              });
+                              vendorId = newVendorId;
+                          } catch (err) { return reject(err); }
+                      }
+
+                      let itemId = record.itemId;
+                      if (!itemId && record.itemName) {
+                          try {
+                              const newItemId = await new Promise((res, rej) => {
+                                  const newId = uuidv4();
+                                  db.run('INSERT OR IGNORE INTO Items (item_id, item_name, category_id, unit_price) VALUES (?, ?, ?, ?)', [newId, record.itemName, 'default-category-id', record.unitPrice], function(err) {
+                                     if(err) return rej(err);
+                                     db.get('SELECT item_id FROM Items WHERE item_name = ?', [record.itemName], (err, row) => {
+                                         if (err) return rej(err);
+                                         res(row ? row.item_id : null);
+                                     });
+                                  });
+                              });
+                              itemId = newItemId;
+                          } catch(err) { return reject(err); }
+                      }
+                      // --- End of auto-creation ---
+
+                      if (!vendorId || !itemId) {
+                          return reject(new Error(`Could not find or create vendor/item for record: ${record.itemName || 'N/A'}`));
+                      }
+                      
+                      const timestamp = new Date().toISOString();
+
+                      if (record.purchaseId) { // This is an existing record, so UPDATE it.
+                          db.get(`SELECT * FROM Purchase_Records WHERE purchase_id = ?`, [record.purchaseId], (err, oldRecord) => {
+                              if (err) return reject(err);
+
+                              const updateQuery = `
+                                  UPDATE Purchase_Records
+                                  SET vendor_id = ?, item_id = ?, purchase_date = ?, unit = ?, quantity = ?,
+                                      unit_price = ?, vat_amount = ?, fs_number = ?, total_amount = ?,
+                                      vat_percentage = ?, mrc_number = ?, status = ?
+                                  WHERE purchase_id = ?`;
+                              db.run(updateQuery, [
+                                  vendorId, itemId, record.purchaseDate, record.unit, record.quantity,
+                                  record.unitPrice, record.vat_amount, record.fsNumber, record.total_amount,
+                                  record.vatPercentage, record.mrcNo, record.status, record.purchaseId
+                              ], function(err) {
+                                  if (err) return reject(err);
+                                  console.log(`Updated record ${record.purchaseId}`);
+                                  // Log the update activity
+                                  const log_id = uuidv4();
+                                  db.run(`INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data, new_data) VALUES (?, ?, 'UPDATE', 'Purchase_Records', ?, ?, ?)`, [log_id, timestamp, record.purchaseId, JSON.stringify(oldRecord), JSON.stringify(record)]);
+                                  resolve({ id: record.purchaseId, status: 'updated' });
+                              });
                           });
-                      });
-                      itemId = newItem;
-                  } catch(err) { return reject(err); }
-              }
-              // --- End of auto-creation ---
-
-              if (!vendorId || !itemId) {
-                  return reject(new Error(`Could not find or create vendor/item for record: ${record.itemName || 'N/A'}`));
-              }
-              
-              if (record.purchaseId) { // This is an existing record, so UPDATE it.
-                  const updateQuery = `
-                      UPDATE Purchase_Records
-                      SET vendor_id = ?, item_id = ?, purchase_date = ?, unit = ?, quantity = ?,
-                          unit_price = ?, vat_amount = ?, fs_number = ?, total_amount = ?,
-                          vat_percentage = ?, mrc_number = ?, status = ?
-                      WHERE purchase_id = ?`;
-                  db.run(updateQuery, [
-                      vendorId, itemId, record.purchaseDate, record.unit, record.quantity,
-                      record.unitPrice, record.vat_amount, record.fsNumber, record.total_amount,
-                      record.vatPercentage, record.mrcNo, record.status, record.purchaseId
-                  ], function(err) {
-                      if (err) return reject(err);
-                      console.log(`Updated record ${record.purchaseId}`);
-                      // Log the update activity
-                      const log_id = uuidv4();
-                      db.run(`INSERT INTO Activity_Logs (log_id, action_type, table_name, record_id, new_data) VALUES (?, 'UPDATE', 'Purchase_Records', ?, ?)`, [log_id, record.purchaseId, JSON.stringify(record)]);
-                      resolve({ id: record.purchaseId, status: 'updated' });
+                      } else { // This is a new record, so INSERT it.
+                          const newPurchaseId = uuidv4();
+                          const insertQuery = `
+                              INSERT INTO Purchase_Records (
+                                  purchase_id, vendor_id, item_id, purchase_date, unit, quantity,
+                                  unit_price, vat_amount, fs_number, total_amount, vat_percentage, mrc_number, status
+                              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+                          db.run(insertQuery, [
+                              newPurchaseId, vendorId, itemId, record.purchaseDate, record.unit, record.quantity,
+                              record.unitPrice, record.vat_amount, record.fsNumber, record.total_amount,
+                              record.vatPercentage, record.mrcNo, record.status
+                          ], function(err) {
+                              if (err) return reject(err);
+                              console.log(`Inserted new record ${newPurchaseId}`);
+                              // Log the insert activity
+                              const log_id = uuidv4();
+                              db.run(`INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, new_data) VALUES (?, ?, 'INSERT', 'Purchase_Records', ?, ?)`, [log_id, timestamp, newPurchaseId, JSON.stringify(record)]);
+                              resolve({ id: newPurchaseId, status: 'inserted' });
+                          });
+                      }
                   });
+              });
+              allPromises.push(...savePromises);
+          }
 
-              } else { // This is a new record, so INSERT it.
-                  const newPurchaseId = uuidv4();
-                  const insertQuery = `
-                      INSERT INTO Purchase_Records (
-                          purchase_id, vendor_id, item_id, purchase_date, unit, quantity,
-                          unit_price, vat_amount, fs_number, total_amount, vat_percentage, mrc_number, status
-                      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-                  db.run(insertQuery, [
-                      newPurchaseId, vendorId, itemId, record.purchaseDate, record.unit, record.quantity,
-                      record.unitPrice, record.vat_amount, record.fsNumber, record.total_amount,
-                      record.vatPercentage, record.mrcNo, record.status
-                  ], function(err) {
-                      if (err) return reject(err);
-                      console.log(`Inserted new record ${newPurchaseId}`);
-                      // Log the insert activity
-                      const log_id = uuidv4();
-                      db.run(`INSERT INTO Activity_Logs (log_id, action_type, table_name, record_id, new_data) VALUES (?, 'INSERT', 'Purchase_Records', ?, ?)`, [log_id, newPurchaseId, JSON.stringify(record)]);
-                      resolve({ id: newPurchaseId, status: 'inserted' });
-                  });
-              }
-          });
-      };
-
-      // Execute all record processing promises within a transaction
-      db.serialize(() => {
-          db.run('BEGIN TRANSACTION');
-          Promise.all(records.map(processRecord))
+          // Execute all promises
+          Promise.all(allPromises)
               .then(results => {
                   db.run('COMMIT', (err) => {
                       if (err) {
@@ -1172,7 +1212,7 @@ app.get('/vendors', (req, res) => {
           JOIN Vendors v ON pr.vendor_id = v.vendor_id
           JOIN Items i ON pr.item_id = i.item_id
           WHERE pr.status = 'saved'
-          ORDER BY pr.purchase_date DESC
+          ORDER BY pr.fs_number, pr.purchase_date ASC
       `;
       db.all(sql, [], (err, rows) => {
           if (err) {
@@ -1202,7 +1242,7 @@ app.get('/vendors', (req, res) => {
             JOIN Vendors v ON pr.vendor_id = v.vendor_id
             JOIN Items i ON pr.item_id = i.item_id
             WHERE pr.posted_date = ?
-            ORDER BY pr.posted_date DESC
+            ORDER BY pr.fs_number, pr.purchase_date ASC
         `;
 
       db.all(sql, [date], (err, rows) => {
@@ -1346,67 +1386,68 @@ app.get('/vendors', (req, res) => {
       }
   });
 
-  // Endpoint to delete a purchase record
-  app.delete('/purchase-records/:id', (req, res) => {
-      const purchase_id = req.params.id;
+  // Endpoint to delete one or more purchase records
+  app.delete('/purchase-records', (req, res) => {
+      const { purchase_ids } = req.body;
+
+      if (!Array.isArray(purchase_ids) || purchase_ids.length === 0) {
+          return res.status(400).json({ message: 'Invalid or empty purchase_ids array provided.' });
+      }
 
       db.serialize(() => {
           db.run('BEGIN TRANSACTION;');
 
-          // First, fetch the record to log its old_data
-          db.get(`SELECT * FROM Purchase_Records WHERE purchase_id = ?`, [purchase_id], (err, oldRecord) => {
-              if (err) {
-                  console.error('Error fetching record for deletion logging:', err.message);
-                  db.run('ROLLBACK;');
-                  return res.status(500).json({ error: err.message });
-              }
-              if (!oldRecord) {
-                  db.run('ROLLBACK;');
-                  return res.status(404).json({ message: 'Record not found.' });
-              }
+          const deletePromises = purchase_ids.map(purchase_id => {
+              return new Promise((resolve, reject) => {
+                  // First, fetch the record to log its old_data
+                  db.get(`SELECT * FROM Purchase_Records WHERE purchase_id = ?`, [purchase_id], (err, oldRecord) => {
+                      if (err) return reject(new Error(`Error fetching record ${purchase_id} for deletion logging: ${err.message}`));
+                      if (!oldRecord) return resolve({ id: purchase_id, status: 'not found' }); // Record not found, resolve without error
 
-              // Perform the delete operation
-              db.run(`DELETE FROM Purchase_Records WHERE purchase_id = ?`, [purchase_id], function(deleteErr) {
-                  if (deleteErr) {
-                      console.error('Error deleting record:', deleteErr.message);
-                      db.run('ROLLBACK;');
-                      return res.status(500).json({ error: deleteErr.message });
-                  }
-                  if (this.changes === 0) {
-                      db.run('ROLLBACK;');
-                      return res.status(404).json({ message: 'Record not found for deletion.' });
-                  }
+                      // Perform the delete operation
+                      db.run(`DELETE FROM Purchase_Records WHERE purchase_id = ?`, [purchase_id], function(deleteErr) {
+                          if (deleteErr) return reject(new Error(`Error deleting record ${purchase_id}: ${deleteErr.message}`));
+                          if (this.changes === 0) return resolve({ id: purchase_id, status: 'not found' });
 
-                  console.log(`A row has been deleted with ID ${purchase_id}`);
+                          console.log(`A row has been deleted with ID ${purchase_id}`);
 
-                  // Insert into Activity_Logs
-                  const log_id = uuidv4();
-                  const timestamp = new Date().toISOString();
-                  const action_type = 'DELETE';
-                  const table_name = 'Purchase_Records';
-                  const record_id = purchase_id;
-                  const old_data = JSON.stringify(oldRecord);
+                          // Insert into Activity_Logs
+                          const log_id = uuidv4();
+                          const timestamp = new Date().toISOString();
+                          const action_type = 'DELETE';
+                          const table_name = 'Purchase_Records';
+                          const record_id = purchase_id;
+                          const old_data = JSON.stringify(oldRecord);
 
-                  db.run(
-                      `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data) VALUES (?, ?, ?, ?, ?, ?)`,
-                      [log_id, timestamp, action_type, table_name, record_id, old_data],
-                      (logErr) => {
-                          if (logErr) {
-                              console.error('Error inserting delete log into Activity_Logs:', logErr.message);
-                              // Decide how to handle log insertion failure (e.g., rollback main transaction or just log error)
-                          }
-                      }
-                  );
-
-                  db.run('COMMIT;', (commitErr) => {
-                      if (commitErr) {
-                          res.status(500).json({ error: commitErr.message });
-                      } else {
-                          res.json({ message: 'Purchase record deleted successfully.' });
-                      }
+                          db.run(
+                              `INSERT INTO Activity_Logs (log_id, timestamp, action_type, table_name, record_id, old_data) VALUES (?, ?, ?, ?, ?, ?)`,
+                              [log_id, timestamp, action_type, table_name, record_id, old_data],
+                              (logErr) => {
+                                  if (logErr) console.error(`Error inserting delete log for ${purchase_id} into Activity_Logs:`, logErr.message);
+                                  resolve({ id: purchase_id, status: 'deleted' });
+                              }
+                          );
+                      });
                   });
               });
           });
+
+          Promise.all(deletePromises)
+              .then(results => {
+                  db.run('COMMIT;', (commitErr) => {
+                      if (commitErr) {
+                          res.status(500).json({ error: 'Failed to commit transaction: ' + commitErr.message });
+                      } else {
+                          res.json({ message: 'Purchase records processed successfully.', results });
+                      }
+                  });
+              })
+              .catch(error => {
+                  db.run('ROLLBACK;', (rollbackErr) => {
+                      if (rollbackErr) console.error('Rollback failed:', rollbackErr.message);
+                      res.status(500).json({ error: 'An error occurred during deletion, transaction rolled back: ' + error.message });
+                  });
+              });
       });
   });
     app.get('/subcategories/all', (req, res) => {
@@ -1512,7 +1553,7 @@ app.get('/vendors', (req, res) => {
   // New endpoint for Yearly Report
   app.get('/reports/yearly', (req, res) => {
       const { subcategory_id, startDate, endDate } = req.query;
-
+      console.log(startDate, endDate, "this is the one for used for generating report after getting the proper")
       if (!subcategory_id || !startDate || !endDate) {
           return res.status(400).json({ error: 'Subcategory ID, start date, and end date are required.' });
       }
@@ -1520,14 +1561,13 @@ app.get('/vendors', (req, res) => {
       const sql = `
           SELECT
               pr.purchase_id, pr.purchase_date, pr.quantity, pr.unit_price, pr.vat_amount,
-              pr.fs_number, pr.total_amount, pr.vat_percentage, pr.mrc_number, pr.unit,
+              pr.fs_number, pr.total_amount, pr.mrc_number,
               v.vendor_name, v.tin_number, i.item_name
           FROM Purchase_Records pr
           JOIN Vendors v ON pr.vendor_id = v.vendor_id
           JOIN Items i ON pr.item_id = i.item_id
           WHERE i.subcategory_id = ? 
             AND DATE(pr.posted_date) BETWEEN ? AND ?
-            AND pr.vat_amount > 0
           ORDER BY pr.posted_date, v.vendor_name;
       `;
 
@@ -1540,12 +1580,16 @@ app.get('/vendors', (req, res) => {
           }
       });
   });
-  // *** MODIFICATION START: ADDED DETAILED LOGGING TO THE POSTING PROCESS ***
-  app.post('/change-from-saved-to-posted', (req, res) => {
-    let { purchase_ids } = req.body;
+app.post('/change-from-saved-to-posted', (req, res) => {
+    let { purchase_ids, post_date } = req.body;
 
     if (!Array.isArray(purchase_ids) || purchase_ids.length === 0) {
       return res.status(400).json({ error: 'purchase_ids must be a non-empty array.' });
+    }
+    
+    // Check if post_date is provided and valid (optional but recommended)
+    if (!post_date) {
+        return res.status(400).json({ error: 'post_date is required.' });
     }
 
     // Use a transaction to ensure all updates and logs are processed or none are.
@@ -1567,15 +1611,16 @@ app.get('/vendors', (req, res) => {
             oldRecordData = JSON.stringify(oldRecord);
 
             // 2. Perform the update to change status and set posted_date
-            const sql = `UPDATE Purchase_Records SET status = 'posted', posted_date = CURRENT_DATE WHERE purchase_id = ?`;
-            db.run(sql, [id], function(updateErr) {
+            // *** FIX HERE: Using '?' placeholder and passing 'post_date' as a parameter ***
+            const sql = `UPDATE Purchase_Records SET status = 'posted', posted_date = ? WHERE purchase_id = ?`;
+            db.run(sql, [post_date, id], function(updateErr) {
               if (updateErr) return reject(updateErr);
               
               if (this.changes > 0) {
                   updatedCount++;
               } else {
-                 // No changes were made, so no need to log.
-                 return resolve();
+                  // No changes were made, so no need to log.
+                  return resolve();
               }
 
               // 3. Fetch the record *after* updating to get new_data
@@ -1618,14 +1663,38 @@ app.get('/vendors', (req, res) => {
         .catch(error => {
           // If any promise fails, roll back the entire transaction
           db.run('ROLLBACK', (rollbackErr) => {
-             if (rollbackErr) console.error('Rollback failed:', rollbackErr.message);
-             res.status(500).json({ error: 'An error occurred, transaction rolled back: ' + error.message });
+               if (rollbackErr) console.error('Rollback failed:', rollbackErr.message);
+               res.status(500).json({ error: 'An error occurred, transaction rolled back: ' + error.message });
           });
         });
     });
-  });
+});
   // *** MODIFICATION END ***
   // server.js
+
+// Endpoint to handle database backup
+app.post('/backup-database', async (req, res) => {
+    const { backupPath } = req.body;
+
+    if (!backupPath) {
+        return res.status(400).json({ error: 'Backup path is required.' });
+    }
+
+    const sourcePath = dbPath; // Use the already defined dbPath
+    const destinationPath = path.join(backupPath, 'finance.db');
+
+    try {
+        // Ensure the directory exists
+        await fs.promises.mkdir(backupPath, { recursive: true });
+        
+        // Copy the database file
+        await fs.promises.copyFile(sourcePath, destinationPath);
+        res.json({ message: `Database backed up successfully to ${destinationPath}` });
+    } catch (error) {
+        console.error('Error during database backup:', error);
+        res.status(500).json({ error: `Failed to backup database: ${error.message}` });
+    }
+});
 
 app.get('/reports/summary', (req, res) => {
     const { startDate, endDate } = req.query;
@@ -1662,8 +1731,91 @@ app.get('/reports/summary', (req, res) => {
 });
   // --- Gregorian ↔ Ethiopian Calendar Converter ---
   const JDN_OFFSET_ETHIOPIC = 1723856;
+/// --- ROBUST HELPER: Find Exact Gregorian Start/End for Ethiopian Month ---
+function getGregorianRangeForEthiopicMonth(etYear, etMonth) {
+    // 1. ESTIMATE the start date (Rough calculation)
+    // Ethiopian New Year is around Sept 11. Add 30 days per month.
+    // We use UTC to avoid timezone issues.
+    let gregorianYear = etYear + 7; 
+    let daysOffset = (etMonth - 1) * 30; 
+    let guessDate = new Date(Date.UTC(gregorianYear, 8, 11)); // Sept 11
+    guessDate.setUTCDate(guessDate.getUTCDate() + daysOffset);
 
+    // 2. CORRECT the start date (The "Sliding Window" Check)
+    // We loop to ensure we land exactly on Day 1 of the requested month
+    while (true) {
+        const ethDate = gregorianToEthiopic(
+            guessDate.getUTCFullYear(),
+            guessDate.getUTCMonth() + 1,
+            guessDate.getUTCDate()
+        );
+
+        // Compare our guess with the target (etYear, etMonth, 1)
+        if (ethDate.year < etYear || (ethDate.year === etYear && ethDate.month < etMonth)) {
+            // We are behind (e.g., Prev Month Day 30), move forward
+            guessDate.setUTCDate(guessDate.getUTCDate() + 1);
+        } else if (ethDate.year > etYear || (ethDate.year === etYear && ethDate.month > etMonth)) {
+            // We are ahead (e.g., Next Month Day 1), move back
+            guessDate.setUTCDate(guessDate.getUTCDate() - 1);
+        } else {
+            // Correct Year and Month. Now check Day.
+            if (ethDate.day < 1) { // Should happen rarely in 1-indexed, but for safety
+                guessDate.setUTCDate(guessDate.getUTCDate() + 1);
+            } else if (ethDate.day > 1) {
+                // We landed on Day 2 or 3. Move back to Day 1.
+                guessDate.setUTCDate(guessDate.getUTCDate() - (ethDate.day - 1));
+            } else {
+                // ethDate.day === 1. BINGO. We found the exact start.
+                break; 
+            }
+        }
+    }
+    const startDate = new Date(guessDate.getTime());
+
+    // 3. CALCULATE End Date
+    // The safest way is to find the start of the NEXT month, then subtract 1 day.
+    // This handles 30-day months and Pagume (5 or 6 days) automatically.
+    let nextMonth = etMonth + 1;
+    let nextYear = etYear;
+    
+    if (nextMonth > 13) {
+        nextMonth = 1;
+        nextYear++;
+    }
+
+    // Use the exact same "Seek Day 1" logic for the next month
+    let endGuessDate = new Date(startDate.getTime());
+    endGuessDate.setUTCDate(endGuessDate.getUTCDate() + 30); // Jump ahead 30 days to get close
+
+    while (true) {
+        const ethDate = gregorianToEthiopic(
+            endGuessDate.getUTCFullYear(),
+            endGuessDate.getUTCMonth() + 1,
+            endGuessDate.getUTCDate()
+        );
+
+        if (ethDate.year < nextYear || (ethDate.year === nextYear && ethDate.month < nextMonth)) {
+            endGuessDate.setUTCDate(endGuessDate.getUTCDate() + 1);
+        } else if (ethDate.year > nextYear || (ethDate.year === nextYear && ethDate.month > nextMonth)) {
+            endGuessDate.setUTCDate(endGuessDate.getUTCDate() - 1);
+        } else {
+            if (ethDate.day > 1) {
+                endGuessDate.setUTCDate(endGuessDate.getUTCDate() - (ethDate.day - 1));
+            }
+            // If day is 1, we found the start of next month.
+            break;
+        }
+    }
+
+    // Subtract 1 day from the start of next month to get end of current month
+    const endDate = new Date(endGuessDate.getTime());
+    endDate.setUTCDate(endDate.getUTCDate() - 1);
+
+    return { startDate, endDate };
+}
   function gregorianToJDN(y, m, d) {
+    // Months 1-12 for Jan-Dec, days 1-31
+    // Algorithm from Wikipedia, adjusted for 1-indexed month and day
     const a = Math.floor((14 - m) / 12);
     const y2 = y + 4800 - a;
     const m2 = m + 12 * a - 3;
@@ -1671,48 +1823,65 @@ app.get('/reports/summary', (req, res) => {
   }
 
   function jdnToEthiopic(jdn) {
-    const r = (jdn - JDN_OFFSET_ETHIOPIC) % 1461;
-    const n = (r % 365) + 365 * Math.floor(r / 1460);
+    const r = (jdn - JDN_OFFSET_ETHIOPIC) % 1461; // Days in a 4-year cycle
+    const n = (r % 365) + 365 * Math.floor(r / 1460); // Days within current year (approx)
+    // Calculate year in Ethiopian calendar
     const year = 4 * Math.floor((jdn - JDN_OFFSET_ETHIOPIC) / 1461) + Math.floor(r / 365) - Math.floor(r / 1460);
-    const month = Math.floor(n / 30) + 1;
-    const day = (n % 30) + 1;
+    const month = Math.floor(n / 30) + 1; // Ethiopian months have 30 days
+    const day = (n % 30) + 1; // Day of the month
     return { year, month, day };
   }
   
   function gregorianToEthiopic(y, m, d) {
+    // Ensure m and d are 1-indexed for gregorianToJDN
     const jdn = gregorianToJDN(y, m, d);
     return jdnToEthiopic(jdn);
   }
-  app.get('/export/jv-pdf', async (req, res) => {
+ // *** UPDATED JV PDF EXPORT (Cash at top + bigger Lambadina title) ***
+app.get('/export/jv-pdf', async (req, res) => {
     const { singledate } = req.query;
     if (!singledate) {
         return res.status(400).json({ error: "A date must be selected." });
     }
 
-    let browser;
     try {
-        // Fetch data just like the original JV report endpoint
         const detailsSql = `
             SELECT i.item_name, (p.total_amount - COALESCE(p.vat_amount, 0)) AS base_total
-            FROM Purchase_Records p JOIN Items i ON p.item_id = i.item_id WHERE DATE(p.posted_date) = ?;
+            FROM Purchase_Records p JOIN Items i ON p.item_id = i.item_id
+            WHERE DATE(p.posted_date) = ?;
         `;
+
         const totalsSql = `
-            SELECT SUM(COALESCE(p.vat_amount, 0)) AS total_vat, SUM(p.total_amount) AS grand_total
-            FROM Purchase_Records p WHERE DATE(p.posted_date) = ?;
+            SELECT SUM(COALESCE(p.vat_amount, 0)) AS total_vat,
+                   SUM(p.total_amount) AS grand_total
+            FROM Purchase_Records p
+            WHERE DATE(p.posted_date) = ?;
         `;
 
-        const details = await new Promise((resolve, reject) => db.all(detailsSql, [singledate], (err, rows) => err ? reject(err) : resolve(rows)));
-        const totals = await new Promise((resolve, reject) => db.get(totalsSql, [singledate], (err, row) => err ? reject(err) : resolve(row)));
+        const details = await new Promise((resolve, reject) =>
+            db.all(detailsSql, [singledate], (err, rows) => err ? reject(err) : resolve(rows))
+        );
 
-        // --- REPLICATE UI LOGIC FOR PDF ---
+        const totals = await new Promise((resolve, reject) =>
+            db.get(totalsSql, [singledate], (err, row) => err ? reject(err) : resolve(row))
+        );
+
+        const etDate = convertDateToEthiopian(singledate);
+
         const totalVatSum = totals.total_vat || 0;
         const cashTotalSum = totals.grand_total || 0;
+
         const totalVatBirr = Math.floor(totalVatSum);
         const totalVatCents = Math.round((totalVatSum - totalVatBirr) * 100);
+
         const cashTotalBirr = Math.floor(cashTotalSum);
         const cashTotalCents = Math.round((cashTotalSum - cashTotalBirr) * 100);
 
-        // Generate HTML content for the PDF, mirroring the UI
+        res.setHeader(
+            "Content-Disposition",
+            `inline; filename="JV-${etDate}.pdf"`
+        );
+
         const content = `
             <!DOCTYPE html>
             <html>
@@ -1720,11 +1889,20 @@ app.get('/reports/summary', (req, res) => {
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>JV Report</title>
-                <style>${reportCssContent}</style> <!-- Inject CSS content directly -->
+                <style>
+                    ${reportCssContent}
+                    /* Make Lambadina title bigger */
+                    .report-header {
+                        font-size: 40px !important;
+                        font-weight: bold;
+                    }
+                </style>
             </head>
             <body>
-                <h1 class="report-header">Lambadina</h1>
-                <h2 class="report-title">Journal Voucher Report for ${singledate}</h2>
+                <h1 class="report-header">Lambadina Hotel</h1>
+
+                <h2 class="report-title">Journal Voucher Report for ${etDate}</h2>
+
                 <table class="table jv-report-table">
                     <thead>
                         <tr>
@@ -1739,11 +1917,23 @@ app.get('/reports/summary', (req, res) => {
                             <th class="is-numeric">Cents</th>
                         </tr>
                     </thead>
+
                     <tbody>
+                        <!-- CASH ROW MOVED TO TOP -->
+                        <tr>
+                            <td><strong>Cash</strong></td>
+                            <td class="is-numeric"></td>
+                            <td class="is-numeric"></td>
+                            <td class="is-numeric"><strong>${cashTotalBirr}</strong></td>
+                            <td class="is-numeric"><strong>${cashTotalCents}</strong></td>
+                        </tr>
+
+                        <!-- ITEM ROWS BELOW CASH -->
                         ${details.map(record => {
                             const baseTotal = record.base_total || 0;
                             const birr = Math.floor(baseTotal);
                             const cents = Math.round((baseTotal - birr) * 100);
+
                             return `
                                 <tr>
                                     <td>${record.item_name}</td>
@@ -1755,6 +1945,7 @@ app.get('/reports/summary', (req, res) => {
                             `;
                         }).join('')}
                     </tbody>
+
                     <tfoot>
                         <tr>
                             <td><strong>Total VAT</strong></td>
@@ -1763,39 +1954,28 @@ app.get('/reports/summary', (req, res) => {
                             <td class="is-numeric"></td>
                             <td class="is-numeric"></td>
                         </tr>
-                        <tr>
-                            <td><strong>Cash</strong></td>
-                            <td class="is-numeric"></td>
-                            <td class="is-numeric"></td>
-                            <td class="is-numeric"><strong>${cashTotalBirr}</strong></td>
-                            <td class="is-numeric"><strong>${cashTotalCents}</strong></td>
-                        </tr>
                     </tfoot>
                 </table>
+
+                <div class="report-footer">
+                    <div class="footer-item">Author: _________________________</div>
+                    <div class="footer-item">Sign: _________________________</div>
+                </div>
             </body>
             </html>
         `;
 
-        // Use Puppeteer to generate PDF
-        browser = await puppeteer.launch({ headless: true });
-        const page = await browser.newPage();
-        await page.setContent(content, { waitUntil: 'networkidle0' });
-        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
-
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="JV_Report_${singledate}.pdf"`);
-        res.send(pdfBuffer);
+        res.setHeader("Content-Type", "text/html");
+        res.send(content);
 
     } catch (error) {
         console.error('Failed to generate JV PDF:', error);
         res.status(500).send('Error generating PDF file.');
-    } finally {
-        if (browser) await browser.close();
     }
 });
+
 // *** NEW ENDPOINT: Summary Report to PDF (Server-Side) ***
 // server.js
-
 // *** NEW ENDPOINT: Summary Report to PDF (Server-Side) ***
 app.get('/export/summary-pdf', async (req, res) => {
     const { startDate, endDate, etYear, etMonth } = req.query;
@@ -1815,15 +1995,23 @@ app.get('/export/summary-pdf', async (req, res) => {
         ? `Summary Report for ${getEthiopianMonthName(etMonth)} ${etYear}`
         : `Summary Report (${startDate} to ${endDate})`;
 
+    const toLocalDate = (d) => {
+        const [y, m, day] = d.split('-').map(Number);
+        return new Date(y, m - 1, day);
+    };
 
-    let browser;
+    const formatDate = (date) => {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
+    };
+
     try {
-        // --- MODIFIED SQL QUERY ---
-        // Apply the same change here for consistency in the PDF.
         const sql = `
             SELECT
-                pr.posted_date AS purchase_date, -- Alias posted_date as purchase_date for frontend compatibility
-                COALESCE(s.subcategory_name, 'Other') AS item_name, -- Alias subcategory as item_name
+                pr.posted_date AS purchase_date,
+                COALESCE(s.subcategory_name, 'Other') AS item_name,
                 SUM(pr.total_amount - COALESCE(pr.vat_amount, 0)) AS base_total,
                 SUM(COALESCE(pr.vat_amount, 0)) AS total_vat
             FROM Purchase_Records pr
@@ -1833,45 +2021,49 @@ app.get('/export/summary-pdf', async (req, res) => {
             GROUP BY pr.posted_date, COALESCE(s.subcategory_name, 'Other')
             ORDER BY pr.posted_date, item_name;
         `;
-        const reportData = await new Promise((resolve, reject) => db.all(sql, [startDate, endDate], (err, rows) => err ? reject(err) : resolve(rows)));
 
-        // ... THE REST OF THE PDF GENERATION CODE REMAINS EXACTLY THE SAME ...
-        // It will automatically work because of the 'item_name' alias.
-        
-        if (reportData.length === 0) return res.status(404).send('No data found for the selected range.');
+        const reportData = await new Promise((resolve, reject) =>
+            db.all(sql, [startDate, endDate], (err, rows) => err ? reject(err) : resolve(rows))
+        );
 
-        const allUniqueItems = [...new Set(reportData.map(record => record.item_name))].sort();
+        if (reportData.length === 0)
+            return res.status(404).send('No data found for the selected range.');
+
+        const allUniqueItems = [...new Set(reportData.map(r => r.item_name))].sort();
+
         const groupedByDate = reportData.reduce((acc, record) => {
             const date = record.purchase_date;
             if (!acc[date]) {
-                acc[date] = { items: {}, dailyTotalVat: 0 };
+                acc[date] = { items: {}, itemsVat: {}, dailyTotalVat: 0 };
             }
-            acc[date].items[record.item_name] = (acc[date].items[record.item_name] || 0) + record.base_total;
+            acc[date].items[record.item_name] =
+                (acc[date].items[record.item_name] || 0) + record.base_total;
+
+            acc[date].itemsVat[record.item_name] =
+                (acc[date].itemsVat[record.item_name] || 0) + record.total_vat;
+
             acc[date].dailyTotalVat += record.total_vat;
             return acc;
         }, {});
 
         const columnTotals = { totalVat: 0 };
         allUniqueItems.forEach(item => columnTotals[item] = 0);
+
         reportData.forEach(record => {
             columnTotals[record.item_name] += record.base_total;
             columnTotals.totalVat += record.total_vat;
         });
 
         const allDatesInMonth = [];
-        let currentDate = new Date(startDate + 'T00:00:00');
-        const lastDate = new Date(endDate + 'T00:00:00');
-        const formatDate = (date) => date.toISOString().split('T')[0];
+        let currentDate = toLocalDate(startDate);
+        const lastDate = toLocalDate(endDate);
+
         while (currentDate <= lastDate) {
             allDatesInMonth.push(formatDate(currentDate));
             currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        const fixedColumns = ['Date'];
-        const totalVatColumn = 'Total VAT';
-        const allDataColumns = [...allUniqueItems, totalVatColumn];
-        const maxColumnsPerPage = 6;
-        const maxDataColumnsPerPage = maxColumnsPerPage - fixedColumns.length;
+        const maxSubcategoriesPerTable = 7;
 
         let allContent = `
             <!DOCTYPE html>
@@ -1880,81 +2072,86 @@ app.get('/export/summary-pdf', async (req, res) => {
                 <meta charset="UTF-8">
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <title>Summary Report</title>
-                <style>${reportCssContent}</style> <!-- Inject CSS content directly -->
+                <style>
+                    ${reportCssContent}
+                    /* Larger Lambadina title */
+                    .report-header {
+                        font-size: 40px !important;
+                        font-weight: bold;
+                    }
+                </style>
             </head>
             <body>
-                <h1 class="report-header">Lambadina</h1>
+                <h1 class="report-header">Lambadina Hotel</h1>
                 <h2 class="report-subtitle">${reportTitle}</h2>
         `;
+        
+        const totalVatColumnName = 'Total VAT';
 
-        for (let i = 0; i < allDataColumns.length; i += maxDataColumnsPerPage) {
-            const currentChunkColumns = allDataColumns.slice(i, i + maxDataColumnsPerPage);
-            const isLastPage = (i + maxDataColumnsPerPage) >= allDataColumns.length;
+        for (let i = 0; i < allUniqueItems.length; i += maxSubcategoriesPerTable) {
+            const currentChunk = allUniqueItems.slice(i, i + maxSubcategoriesPerTable);
+            const isLast = (i + maxSubcategoriesPerTable) >= allUniqueItems.length;
 
-            let tableHeaders = `<th>${fixedColumns[0]}</th>` + currentChunkColumns.map(colName => `<th class="${colName === totalVatColumn ? 'is-numeric' : ''}">${colName}</th>`).join('');
+            let tableHeaders =
+                `<th>Date</th>` +
+                currentChunk.map(col => `<th>${col}</th>`).join('') +
+                `<th class="is-numeric">${totalVatColumnName}</th>`;
 
             let tableBodyRows = '';
+
             allDatesInMonth.forEach(date => {
                 const dateData = groupedByDate[date];
-                let rowHtml = `<td>${new Date(date + 'T00:00:00').toLocaleDateString()}</td>`;
-                currentChunkColumns.forEach(colName => {
-                    if (colName === totalVatColumn) {
-                        const dailyVat = dateData ? (dateData.dailyTotalVat || 0) : 0;
-                        rowHtml += `<td class="is-numeric">${dailyVat > 0 ? dailyVat.toFixed(2) : '-'}</td>`;
-                    } else {
-                        const baseTotal = dateData ? (dateData.items[colName] || 0) : 0;
-                        rowHtml += `<td class="is-numeric">${baseTotal > 0 ? baseTotal.toFixed(2) : '-'}</td>`;
-                    }
+                let rowHtml = `<td>${convertDateToEthiopian(date)}</td>`;
+                let dailyVatForChunk = 0;
+
+                currentChunk.forEach(subcat => {
+                    const baseTotal = dateData ? (dateData.items[subcat] || 0) : 0;
+                    const vatTotal = dateData ? (dateData.itemsVat[subcat] || 0) : 0;
+
+                    rowHtml += `<td class="is-numeric">${baseTotal > 0 ? baseTotal.toFixed(2) : '-'}</td>`;
+                    dailyVatForChunk += vatTotal;
                 });
+
+                rowHtml += `<td class="is-numeric">${dailyVatForChunk > 0 ? dailyVatForChunk.toFixed(2) : '-'}</td>`;
                 tableBodyRows += `<tr>${rowHtml}</tr>`;
             });
 
+            let footerHtml = `<td><strong>Grand Total</strong></td>`;
+            let chunkVatTotal = 0;
+
+            currentChunk.forEach(item => {
+                const total = columnTotals[item] || 0;
+                footerHtml += `<td class="is-numeric"><strong>${total > 0 ? total.toFixed(2) : '-'}</strong></td>`;
+            });
+
+            allDatesInMonth.forEach(date => {
+                const dateData = groupedByDate[date];
+                if (dateData)
+                    currentChunk.forEach(subcat => chunkVatTotal += (dateData.itemsVat[subcat] || 0));
+            });
+
+            footerHtml += `<td class="is-numeric"><strong>${chunkVatTotal.toFixed(2)}</strong></td>`;
+
             allContent += `
-                <table class="table summary-report-table ${!isLastPage ? 'page-break' : ''}">
+                <table class="table summary-report-table ${!isLast ? 'page-break' : ''}">
                     <thead><tr>${tableHeaders}</tr></thead>
                     <tbody>${tableBodyRows}</tbody>
+                    <tfoot><tr class="grand-total-table">${footerHtml}</tr></tfoot>
                 </table>
             `;
         }
 
-        // Now, generate the single grand total footer table
-        let grandTotalFooterHtml = `<td><strong>Grand Total</strong></td>`;
-        allDataColumns.forEach(colName => { // Iterate over ALL columns for the grand total
-            if (colName === totalVatColumn) {
-                const grandTotalVat = columnTotals.totalVat || 0;
-                grandTotalFooterHtml += `<td class="is-numeric"><strong>${grandTotalVat > 0 ? grandTotalVat.toFixed(2) : '-'}</strong></td>`;
-            } else {
-                const total = columnTotals[colName] || 0;
-                grandTotalFooterHtml += `<td class="is-numeric"><strong>${total > 0 ? total.toFixed(2) : '-'}</strong></td>`;
-            }
-        });
-
-        allContent += `
-            <table class="table summary-report-table grand-total-table">
-                <tfoot>
-                    <tr>${grandTotalFooterHtml}</tr>
-                </tfoot>
-            </table>
-        `;
-
         allContent += `</body></html>`;
 
-        browser = await puppeteer.launch({ headless: true });
-        const page = await browser.newPage();
-        await page.setContent(allContent, { waitUntil: 'networkidle0' });
-        const pdfBuffer = await page.pdf({ format: 'A4', landscape: true, printBackground: true });
-
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="Summary_Report.pdf"`);
-        res.send(pdfBuffer);
+        res.setHeader('Content-Type', 'text/html');
+        res.send(allContent);
 
     } catch (error) {
         console.error('Failed to generate Summary PDF:', error);
         res.status(500).send('Error generating PDF file.');
-    } finally {
-        if (browser) await browser.close();
     }
 });
+
 
   // *** NEW ENDPOINT: Gregorian to Ethiopian Date Conversion ***
   app.get('/convert-to-ethiopian', (req, res) => {
@@ -1971,100 +2168,113 @@ app.get('/export/summary-pdf', async (req, res) => {
           res.status(500).json({ error: 'An error occurred during date conversion.', details: error.message });
       }
   });
+  function convertDateToEthiopian(dateString) {
+    if (!dateString) return '';
 
-  // *** NEW ENDPOINT: Get Gregorian Range for Ethiopian Month ***
-  app.get('/get-gregorian-range', (req, res) => {
-      const etYear = parseInt(req.query.year, 10);
-      const etMonth = parseInt(req.query.month, 10);
-      
-      if (!etYear || !etMonth || isNaN(etYear) || isNaN(etMonth)) {
-          return res.status(400).json({ error: 'Valid "year" and "month" query parameters are required.' });
-      }
+    const [y, m, d] = dateString.split('-').map(Number);
+    const { year, month, day } = gregorianToEthiopic(y, m, d);
 
-      try {
-          // The Gregorian year in which the Ethiopian year begins
-          const gregYear = etYear + 7;
-          
-          // Determine the Gregorian date for Meskerem 1 (Ethiopian New Year)
-          // It's on Sep 12 in the Gregorian year *preceding* a leap year
-          const newYearDay = new Date(gregYear, 8, 11);
-          if ((gregYear + 1) % 4 === 0 && (gregYear + 1) % 100 !== 0 || (gregYear + 1) % 400 === 0) {
-              newYearDay.setDate(12);
-          }
+    return `${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
 
-          // Calculate the start date by adding the month offset
-          const startOffset = (etMonth - 1) * 30;
-          const startDate = new Date(newYearDay.getTime());
-          startDate.setDate(newYearDay.getDate() + startOffset);
-          
-          // Determine the number of days in the Ethiopian month
-          let daysInMonth = 30;
-          if (etMonth === 13) {
-              const isEthLeap = (etYear + 1) % 4 === 0;
-              daysInMonth = isEthLeap ? 6 : 5;
-          }
-          
-          // Calculate the end date
-          const endDate = new Date(startDate.getTime());
-          endDate.setDate(startDate.getDate() + daysInMonth - 1);
 
-          // Helper to format dates as YYYY-MM-DD
-          const formatDate = (d) => d.toISOString().split('T')[0];
-          
-          res.json({
-              startDate: formatDate(startDate),
-              endDate: formatDate(endDate)
-          });
-      } catch (error) {
-          res.status(500).json({ error: 'An error occurred while calculating the date range.', details: error.message });
-      }
-  });
 
-  // *** NEW ENDPOINT: Get Gregorian Year Range for Ethiopian Year ***
-  app.get('/get-gregorian-year-range', (req, res) => {
-      const etYear = parseInt(req.query.year, 10);
-      
-      if (!etYear || isNaN(etYear)) {
-          return res.status(400).json({ error: 'Valid "year" query parameter is required.' });
-      }
 
-      try {
-          // The Gregorian year in which the Ethiopian year begins
-          const gregYear = etYear + 7;
-          
-          // Determine the Gregorian date for Meskerem 1 (Ethiopian New Year)
-          const newYearDay = new Date(gregYear, 8, 11);
-          if ((gregYear + 1) % 4 === 0 && (gregYear + 1) % 100 !== 0 || (gregYear + 1) % 400 === 0) {
-              newYearDay.setDate(12);
-          }
+ app.get('/get-gregorian-range', (req, res) => {
+    const etYear = parseInt(req.query.year, 10);
+    const etMonth = parseInt(req.query.month, 10);
 
-          // Start date is Meskerem 1
-          const startDate = new Date(newYearDay.getTime());
-          
-          // End date is Pagume last day (13th month last day of Ethiopian year)
-          // Calculate date for Pagume 1 (after 12 months * 30 days = 360 days)
-          const pagume1Date = new Date(newYearDay.getTime());
-          pagume1Date.setDate(newYearDay.getDate() + 360);
-          
-          // Determine number of days in Pagume (13th month)
-          const isEthLeap = (etYear + 1) % 4 === 0;
-          const daysInPagume = isEthLeap ? 6 : 5;
-          
-          // End date is the last day of Pagume
-          const endDate = new Date(pagume1Date.getTime());
-          endDate.setDate(pagume1Date.getDate() + daysInPagume - 1);
+    if (!etYear || !etMonth) return res.status(400).json({ error: 'Invalid parameters' });
 
-          // Helper to format dates as YYYY-MM-DD
-          const formatDate = (d) => d.toISOString().split('T')[0];
-          
-          res.json({
-              startDate: formatDate(startDate),
-              endDate: formatDate(endDate)
-          });
-      } catch (error) {
-          res.status(500).json({ error: 'An error occurred while calculating the year range.', details: error.message });
-      }
-  });
+    try {
+        const { startDate, endDate } = getGregorianRangeForEthiopicMonth(etYear, etMonth);
+
+        // Format YYYY-MM-DD
+        const fmt = (d) => d.toISOString().split('T')[0];
+
+        res.json({
+            startDate: fmt(startDate),
+            endDate: fmt(endDate)
+        });
+    } catch (e) {
+        res.status(500).json({ error: e.message });
+    }
+});
+// *** NEW ENDPOINT: Get Gregorian Year Range for Ethiopian Year ***
+app.get('/get-gregorian-year-range', async (req, res) => {
+    const etYear = parseInt(req.query.year, 10);
+    console.log(`[DEBUG] Request for etYear: ${etYear}`);
+
+    if (!etYear || isNaN(etYear)) {
+        return res.status(400).json({ error: 'Valid "year" query parameter is required.' });
+    }
+
+    try {
+        // Helper to convert Date -> {year, month, day}
+        const formatYMD = (date) => ({
+            year: date.getUTCFullYear(),
+            month: date.getUTCMonth() + 1,
+            day: date.getUTCDate()
+        });
+
+        // Helper: Convert Ethiopic Year + Month to Gregorian date range
+        // This helper should also use UTC methods for consistency.
+        const getGregorianRangeForEthiopicMonth = (ethiopicYear, etMonth) => {
+            // Re-using the robust Meskerem 1 calculation
+            let gregorianYearForNewYear = ethiopicYear + 7; 
+            let newYearDate = new Date(Date.UTC(gregorianYearForNewYear, 8, 11)); 
+
+            let potentialEthioDate = gregorianToEthiopic(newYearDate.getUTCFullYear(), newYearDate.getUTCMonth() + 1, newYearDate.getUTCDate());
+            if (potentialEthioDate.year !== ethiopicYear || potentialEthioDate.month !== 1 || potentialEthioDate.day !== 1) {
+                newYearDate = new Date(Date.UTC(gregorianYearForNewYear, 8, 12));
+                potentialEthioDate = gregorianToEthiopic(newYearDate.getUTCFullYear(), newYearDate.getUTCMonth() + 1, newYearDate.getUTCDate());
+                 if (potentialEthioDate.year !== ethiopicYear || potentialEthioDate.month !== 1 || potentialEthioDate.day !== 1) {
+                    gregorianYearForNewYear--; 
+                    newYearDate = new Date(Date.UTC(gregorianYearForNewYear, 8, 11)); 
+                 }
+            }
+
+            const startOffsetDays = (etMonth - 1) * 30;
+            const startDate = new Date(newYearDate.getTime());
+            startDate.setUTCDate(newYearDate.getUTCDate() + startOffsetDays);
+
+            let daysInMonth = 30;
+            if (etMonth === 13) {
+                const isEthLeapYear = (ethiopicYear % 4 === 3);
+                daysInMonth = isEthLeapYear ? 6 : 5;
+            }
+
+            const endDate = new Date(startDate.getTime());
+            endDate.setUTCDate(startDate.getUTCDate() + daysInMonth - 1);
+
+            return { startDate, endDate };
+        };
+
+        const prevEthYear = etYear - 1;
+
+        // Hamle 1 (Month 11) of previous year
+        const hamleRange = getGregorianRangeForEthiopicMonth(prevEthYear, 11);
+        const startDate = hamleRange.startDate;
+
+        // Sene 30 (Month 10) of current year
+        const seneRange = getGregorianRangeForEthiopicMonth(etYear, 10);
+        const endDate = seneRange.endDate;
+
+        res.json({
+            startDate: formatYMD(startDate),
+            endDate: formatYMD(endDate)
+        });
+
+        console.log("Start:", formatYMD(startDate), "End:", formatYMD(endDate));
+
+    } catch (error) {
+        console.error('Error in /get-gregorian-year-range:', error.message);
+        res.status(500).json({
+            error: 'An error occurred while calculating the year range.',
+            details: error.message
+        });
+    }
+});
 
 
 
