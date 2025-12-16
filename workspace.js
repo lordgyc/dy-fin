@@ -1,6 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const userRole = localStorage.getItem('userRole');
-    const EDIT_POSTED_CODE = "122119"; // Static 6-digit code for editing posted records
+    const EDIT_POSTED_CODES = ["Chekolbelayasrate1983", "hintegp122119"]; // Valid passwords for editing posted records
 
     const promptForEditCode = async () => {
         return new Promise(resolve => {
@@ -8,8 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
             modalOverlay.id = 'edit-code-modal-overlay';
             modalOverlay.innerHTML = `
                 <div id="edit-code-modal-content">
-                    <p>Enter 6-digit code to enable editing of posted records:</p>
-                    <input type="password" id="edit-code-input" maxlength="6" autocomplete="off" />
+                    <p>Enter password to enable editing of posted records:</p>
+                    <input type="password" id="edit-code-input" autocomplete="off" />
                     <div id="edit-code-modal-buttons">
                         <button id="edit-code-cancel-btn">Cancel</button>
                         <button id="edit-code-submit-btn">Submit</button>
@@ -30,7 +30,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const handleSubmit = () => {
                 const enteredCode = codeInput.value;
                 cleanup();
-                resolve(enteredCode === EDIT_POSTED_CODE);
+                // Check if entered code matches any of the valid passwords
+                resolve(EDIT_POSTED_CODES.includes(enteredCode));
             };
 
             const handleCancel = () => {
@@ -176,10 +177,22 @@ document.addEventListener('DOMContentLoaded', () => {
     const postedDatePicker = document.getElementById('posted-date-picker');
     const loadPostedBtn = document.getElementById('load-posted-btn');
     const backToWorkspaceBtn = document.getElementById('back-to-workspace-btn');
+    const amendmentsBtn = document.getElementById('amendments-btn'); // New button
     const postdate = document.getElementById('post-prompt')
     const postdatepicker = document.getElementById('post-date')
     const postc = document.getElementById('postc')
-    const overlay = document.getElementById('overlay')
+    const overlay = document.getElementById('overlay') // Re-added overlay
+
+    // --- AMENDMENTS MODAL ELEMENTS ---
+    const amendmentsModalOverlay = document.getElementById('amendments-modal-overlay');
+    const amendmentsYearSelect = document.getElementById('amendments-year-select');
+    const amendmentsMonthSelect = document.getElementById('amendments-month-select');
+    const amendmentsPostedDatePicker = document.getElementById('amendments-posted-date-picker');
+    const amendmentsConfirmBtn = document.getElementById('amendments-confirm-btn');
+    const amendmentsCancelBtn = document.getElementById('amendments-cancel-btn');
+    const amendmentModeIndicator = document.getElementById('amendment-mode-indicator');
+    const amendmentMonthDisplay = document.getElementById('amendment-month-display');
+
     // --- VENDOR MODAL ELEMENTS ---
     const addVendorModal = document.getElementById('addVendorModal');
     const openAddVendorModalBtn = document.getElementById('open-add-vendor-modal-btn');
@@ -189,6 +202,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let isCurrentlyPostedView = false;
     const initialPurchaseIdsPerCard = new Map(); // Store purchase_ids loaded for each card
+
+    // Global variable to store the selected amendment month and year (Ethiopian Calendar)
+    let amendedEthiopianMonth = null;
+    let amendedEthiopianYear = null;
+    let isAmendmentMode = false;
+    let amendmentPostedDate = null;
+
+    // Functions to persist amendment mode state
+    const saveAmendmentState = () => {
+        if (isAmendmentMode && amendmentPostedDate) {
+            localStorage.setItem('amendmentMode', JSON.stringify({
+                isAmendmentMode: true,
+                amendedEthiopianYear,
+                amendedEthiopianMonth,
+                amendmentPostedDate
+            }));
+        } else {
+            localStorage.removeItem('amendmentMode');
+        }
+    };
+
+    const restoreAmendmentState = async () => {
+        const savedState = localStorage.getItem('amendmentMode');
+        if (savedState) {
+            try {
+                const state = JSON.parse(savedState);
+                if (state.isAmendmentMode && state.amendmentPostedDate) {
+                    // Restore the state
+                    isAmendmentMode = true;
+                    amendedEthiopianYear = state.amendedEthiopianYear;
+                    amendedEthiopianMonth = state.amendedEthiopianMonth;
+                    amendmentPostedDate = state.amendmentPostedDate;
+
+                    // Restore UI
+                    if (amendmentModeIndicator && amendmentMonthDisplay) {
+                        amendmentMonthDisplay.textContent = `${ethiopianMonths[state.amendedEthiopianMonth - 1]} ${state.amendedEthiopianYear} E.C. (Posted: ${state.amendmentPostedDate})`;
+                        amendmentModeIndicator.style.display = 'block';
+                    }
+
+                    // Hide/show buttons
+                    syncLogsBtn.style.display = 'none';
+                    viewPostedBtn.style.display = 'none';
+                    amendmentsBtn.style.display = 'none';
+                    backToWorkspaceBtn.style.display = 'inline-block';
+
+                    // Load posted records for the selected date
+                    isCurrentlyPostedView = true;
+                    postedDatePicker.value = state.amendmentPostedDate;
+                    await reloadTableData(true);
+
+                    showNotification(`Amendment mode restored for ${ethiopianMonths[state.amendedEthiopianMonth - 1]} ${state.amendedEthiopianYear} E.C.`, 'info');
+                }
+            } catch (error) {
+                console.error('Error restoring amendment state:', error);
+                localStorage.removeItem('amendmentMode');
+            }
+        }
+    };
+
+    // Ethiopian month names for dropdown
+    const ethiopianMonths = ["Meskerem", "Tikimt", "Hidar", "Tahsas", "Ter", "Yekatit", "Megabit", "Miazia", "Genbot", "Sene", "Hamle", "Nehase", "Pagume"];
 
     // --- VENDOR MODAL LOGIC ---
     function openModal(modalElement) {
@@ -385,22 +459,36 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('keydown', handleKeydown);
     });
 };
-    const isDateInCurrentEthiopianMonth = async (gregorianDateString) => {
+    // Renamed and modified function for date validation
+    const isDateInAcceptedEthiopianMonthRange = async (gregorianDateString) => {
         if (!gregorianDateString) return false;
+
+        let targetYear, targetMonth;
+
+        if (amendedEthiopianYear && amendedEthiopianMonth) {
+            targetYear = amendedEthiopianYear;
+            targetMonth = amendedEthiopianMonth;
+        } else {
+            // Fallback to current Ethiopian month if no amendment is set
+            try {
+                const todayECResponse = await fetch(`http://localhost:3000/convert-to-ethiopian?date=${new Date().toISOString().split('T')[0]}`);
+                if (!todayECResponse.ok) return false;
+                const todayEC = await todayECResponse.json();
+                targetYear = todayEC.year;
+                targetMonth = todayEC.month;
+            } catch (error) {
+                console.error("Failed to fetch current Ethiopian month for validation:", error);
+                return false; // Fail safely
+            }
+        }
+
         try {
-            const todayStr = new Date().toISOString().split('T')[0];
-            
-            const [todayResponse, selectedDateResponse] = await Promise.all([
-                fetch(`http://localhost:3000/convert-to-ethiopian?date=${todayStr}`),
-                fetch(`http://localhost:3000/convert-to-ethiopian?date=${gregorianDateString}`)
-            ]);
-
-            if (!todayResponse.ok || !selectedDateResponse.ok) return false;
-
-            const currentEC = await todayResponse.json();
+            const selectedDateResponse = await fetch(`http://localhost:3000/convert-to-ethiopian?date=${gregorianDateString}`);
+            if (!selectedDateResponse.ok) return false;
             const selectedEC = await selectedDateResponse.json();
 
-            return selectedEC.year === currentEC.year && selectedEC.month === currentEC.month;
+            // Check if the selected date falls within the target Ethiopian month and year
+            return selectedEC.year === targetYear && selectedEC.month === targetMonth;
         } catch (error) {
             console.error("Date validation fetch failed:", error);
             return false; // Fail safely
@@ -416,8 +504,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const dateInput = mainRow?.querySelector('.purchase-date-input');
         
-        // This is now an async operation
-        const isDateValid = await isDateInCurrentEthiopianMonth(dateInput?.value);
+        // This is now an async operation, using the new function
+        const isDateValid = await isDateInAcceptedEthiopianMonthRange(dateInput?.value);
 
         const quantity = parseFloat(rowElement.querySelector(isSubRow ? '.sub-quantity' : '.quantity-input')?.value) || 0;
         const unitPrice = parseFloat(rowElement.querySelector(isSubRow ? '.sub-unit-price' : '.unit-price-input')?.value) || 0;
@@ -507,7 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (rowElement.classList.contains('main-row')) {
                 const dateInput = rowElement.querySelector('.purchase-date-input');
                 dateInput?.addEventListener('input', async () => {
-                    const isValid = await isDateInCurrentEthiopianMonth(dateInput.value);
+                    const isValid = await isDateInAcceptedEthiopianMonthRange(dateInput.value);
                     dateInput.classList.toggle('date-invalid', !isValid);
                     
                     // Recalculate for main row and all its sub-rows
@@ -847,8 +935,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const mainFsNumberRaw = mainRowElement.querySelector('.fs-number-input')?.value;
         const mainFsPrefix = mainRowElement.querySelector('.fs-prefix')?.textContent || '';
         const commonFsNumber = mainFsNumberRaw ? `${mainFsPrefix}${mainFsNumberRaw}` : '';
-        const commonStatus = isCurrentlyPostedView ? 'posted' : 'saved';
-        const commonIsDateValid = await isDateInCurrentEthiopianMonth(commonPurchaseDate);
+        // In amendment mode, always save as 'saved' first, then we'll post them
+        // Otherwise, use the view status
+        const commonStatus = (isAmendmentMode && amendmentPostedDate) ? 'saved' : (isCurrentlyPostedView ? 'posted' : 'saved');
+        const commonIsDateValid = await isDateInAcceptedEthiopianMonthRange(commonPurchaseDate); // Updated to use the new function
 
         const extractRecord = (row, isSub = false, commonSharedData) => {
             const quantity = parseFloat(row.querySelector(isSub ? '.sub-quantity' : '.quantity-input')?.value) || 0;
@@ -953,8 +1043,100 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             const result = await response.json();
             if (response.ok) {
-                showNotification(result.message, 'success');
-                reloadTableData(); 
+                // If in amendment mode, automatically post the newly saved records
+                if (isAmendmentMode && amendmentPostedDate) {
+                    showNotification(result.message + ' Posting records...', 'info');
+                    
+                    // Store the FS number and purchase date to filter saved records
+                    const fsNumberToFind = commonFsNumber;
+                    const purchaseDateToFind = commonPurchaseDate;
+                    
+                    // Wait a brief moment for the database transaction to complete
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                    
+                    // Fetch all saved records from the server to get the purchase IDs
+                    try {
+                        const savedRecordsResponse = await fetch('http://localhost:3000/saved-purchase-records');
+                        if (!savedRecordsResponse.ok) {
+                            throw new Error('Failed to fetch saved records');
+                        }
+                        const savedRecords = await savedRecordsResponse.json();
+                        
+                        // Filter records by FS number and purchase date
+                        let savedIds = savedRecords
+                            .filter(record => {
+                                const recordFsNumber = record.fs_number || '';
+                                const recordPurchaseDate = record.purchase_date ? record.purchase_date.split('T')[0] : '';
+                                const targetPurchaseDate = purchaseDateToFind ? purchaseDateToFind.split('T')[0] : '';
+                                
+                                // Match by FS number if available, otherwise match by purchase date
+                                if (fsNumberToFind && fsNumberToFind !== '') {
+                                    return recordFsNumber === fsNumberToFind;
+                                } else if (targetPurchaseDate) {
+                                    return recordPurchaseDate === targetPurchaseDate;
+                                }
+                                return false;
+                            })
+                            .map(record => record.purchase_id)
+                            .filter(id => id);
+                        
+                        // If no matches found by FS number/date, get the most recently saved records (last N records where N = recordsToSave.length)
+                        if (savedIds.length === 0 && savedRecords.length > 0) {
+                            // Get the last few records (assuming they're the ones we just saved)
+                            const numRecordsToGet = Math.min(recordsToSave.length, savedRecords.length);
+                            savedIds = savedRecords
+                                .slice(-numRecordsToGet)
+                                .map(record => record.purchase_id)
+                                .filter(id => id);
+                        }
+
+                        if (savedIds.length > 0) {
+                            try {
+                                const postResponse = await fetch('http://localhost:3000/change-from-saved-to-posted', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        purchase_ids: savedIds,
+                                        post_date: amendmentPostedDate
+                                    })
+                                });
+
+                                if (postResponse.ok) {
+                                    showNotification('Records saved and posted successfully in amendment mode.', 'success');
+                                    // Reload with posted view
+                                    isCurrentlyPostedView = true;
+                                    await reloadTableData(true);
+                                } else {
+                                    const postResult = await postResponse.json();
+                                    showNotification(`Saved but failed to post: ${postResult.error || postResult.message}`, 'warning');
+                                    // Reload with posted view anyway
+                                    isCurrentlyPostedView = true;
+                                    await reloadTableData(true);
+                                }
+                            } catch (postError) {
+                                console.error("Post error:", postError);
+                                showNotification('Records saved but failed to post automatically.', 'warning');
+                                // Reload with posted view anyway
+                                isCurrentlyPostedView = true;
+                                await reloadTableData(true);
+                            }
+                        } else {
+                            showNotification(result.message, 'success');
+                            // Reload with posted view
+                            isCurrentlyPostedView = true;
+                            await reloadTableData(true);
+                        }
+                    } catch (fetchError) {
+                        console.error("Error fetching saved records:", fetchError);
+                        showNotification('Records saved but failed to fetch for posting.', 'warning');
+                        // Reload with posted view anyway
+                        isCurrentlyPostedView = true;
+                        await reloadTableData(true);
+                    }
+                } else {
+                    showNotification(result.message, 'success');
+                    reloadTableData(); 
+                }
             } else {
                 showNotification(`Error: ${result.message}`, 'error');
             }
@@ -964,6 +1146,101 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
+    const populateAmendmentMonthYearDropdowns = async () => {
+        // Populate years
+        amendmentsYearSelect.innerHTML = '';
+        const currentGregorianYear = new Date().getFullYear();
+        // Get current Ethiopian year
+        const todayEC = await fetch(`http://localhost:3000/convert-to-ethiopian?date=${new Date().toISOString().split('T')[0]}`)
+                                    .then(res => res.json())
+                                    .catch(err => { console.error("Failed to fetch current Ethiopian year:", err); return null; });
+        const currentEthiopianYear = todayEC ? todayEC.year : currentGregorianYear - 8; // Fallback if conversion fails
+
+        for (let i = 0; i < 10; i++) { // Show current year and 9 previous years
+            const year = currentEthiopianYear - i;
+            const option = document.createElement('option');
+            option.value = year;
+            option.textContent = year + ' E.C.';
+            amendmentsYearSelect.appendChild(option);
+        }
+        amendmentsYearSelect.value = currentEthiopianYear; // Default to current year
+
+        // Populate months
+        amendmentsMonthSelect.innerHTML = '';
+        ethiopianMonths.forEach((monthName, index) => {
+            const option = document.createElement('option');
+            option.value = index + 1; // Months are 1-indexed
+            option.textContent = monthName;
+            amendmentsMonthSelect.appendChild(option);
+        });
+        // Default to current month
+        if (todayEC) {
+            amendmentsMonthSelect.value = todayEC.month;
+        }
+    };
+
+    amendmentsBtn.addEventListener('click', async () => {
+        const isCodeCorrect = await promptForEditCode();
+        if (isCodeCorrect) {
+            await populateAmendmentMonthYearDropdowns();
+            amendmentsModalOverlay.style.display = 'flex';
+        } else {
+            showNotification('Incorrect code. Amendments feature disabled.', 'error');
+        }
+    });
+
+    amendmentsCancelBtn.addEventListener('click', () => {
+        amendmentsModalOverlay.style.display = 'none';
+    });
+
+    amendmentsConfirmBtn.addEventListener('click', async () => {
+        const selectedYear = parseInt(amendmentsYearSelect.value, 10);
+        const selectedMonth = parseInt(amendmentsMonthSelect.value, 10);
+        const selectedPostedDate = amendmentsPostedDatePicker.value;
+
+        if (isNaN(selectedYear) || isNaN(selectedMonth)) {
+            showNotification('Please select a valid year and month.', 'error');
+            return;
+        }
+
+        if (!selectedPostedDate) {
+            showNotification('Please select a posted date to view and amend records.', 'error');
+            return;
+        }
+
+        // Set amendment mode variables
+        amendedEthiopianYear = selectedYear;
+        amendedEthiopianMonth = selectedMonth;
+        amendmentPostedDate = selectedPostedDate;
+        isAmendmentMode = true;
+
+        // Save state to localStorage
+        saveAmendmentState();
+
+        // Close modal
+        amendmentsModalOverlay.style.display = 'none';
+
+        // Show amendment mode indicator
+        if (amendmentModeIndicator && amendmentMonthDisplay) {
+            amendmentMonthDisplay.textContent = `${ethiopianMonths[selectedMonth - 1]} ${selectedYear} E.C. (Posted: ${selectedPostedDate})`;
+            amendmentModeIndicator.style.display = 'block';
+        }
+
+        // Hide some buttons but keep "Add New Row" visible in amendment mode
+        syncLogsBtn.style.display = 'none'; // Hide Post button since we're in amendment mode
+        viewPostedBtn.style.display = 'none';
+        amendmentsBtn.style.display = 'none';
+        backToWorkspaceBtn.style.display = 'inline-block';
+        // Keep "Add New Row" and "Add Vendor" buttons visible
+
+        // Load posted records for the selected date
+        isCurrentlyPostedView = true;
+        postedDatePicker.value = selectedPostedDate;
+        await reloadTableData(true);
+
+        showNotification(`Amendment mode activated for ${ethiopianMonths[selectedMonth - 1]} ${selectedYear} E.C. - Posted Date: ${selectedPostedDate}`, 'success');
+    });
+
     addRowBtn.addEventListener('click', () => {
         const container = document.getElementById('purchase-groups-container');
         const groupComponent = document.createElement('div');
@@ -1097,7 +1374,11 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '<div class="loading-indicator">Loading records...</div>';
 
         try {
-            const endpoint = isPostedView ? `http://localhost:3000/posted-purchase-records?date=${postedDatePicker.value}` : 'http://localhost:3000/saved-purchase-records';
+            // In amendment mode, use the amendment posted date instead of the picker value
+            const dateToUse = (isPostedView && isAmendmentMode && amendmentPostedDate) 
+                ? amendmentPostedDate 
+                : postedDatePicker.value;
+            const endpoint = isPostedView ? `http://localhost:3000/posted-purchase-records?date=${dateToUse}` : 'http://localhost:3000/saved-purchase-records';
             const response = await fetch(endpoint);
             const records = await response.json();
             container.innerHTML = '';
@@ -1128,9 +1409,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             let allowPostedEdit = false;
             if (isPostedView) {
-                allowPostedEdit = await promptForEditCode();
-                if (!allowPostedEdit) {
-                    showNotification('Incorrect code. Editing of posted records is disabled.', 'error');
+                // If we're in amendment mode, we already entered the code, so skip the prompt
+                if (isAmendmentMode) {
+                    allowPostedEdit = true;
+                } else {
+                    allowPostedEdit = await promptForEditCode();
+                    if (!allowPostedEdit) {
+                        showNotification('Incorrect code. Editing of posted records is disabled.', 'error');
+                    }
                 }
             }
 
@@ -1252,11 +1538,29 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     backToWorkspaceBtn.addEventListener('click', () => {
+        // Exit amendment mode if active
+        if (isAmendmentMode) {
+            isAmendmentMode = false;
+            amendmentPostedDate = null;
+            amendedEthiopianYear = null;
+            amendedEthiopianMonth = null;
+            
+            // Clear saved state
+            saveAmendmentState();
+            
+            // Hide amendment mode indicator
+            if (amendmentModeIndicator) {
+                amendmentModeIndicator.style.display = 'none';
+            }
+        }
+        
         isCurrentlyPostedView = false;
         reloadTableData();
-        mainActionButtons.style.display = 'inline-flex';
+        // Show all main action buttons again
+        syncLogsBtn.style.display = 'inline-flex';
         backToWorkspaceBtn.style.display = 'none';
         viewPostedBtn.style.display = 'inline-block';
+        amendmentsBtn.style.display = 'inline-block';
         postedDateControls.style.display = 'none';
     });
 
@@ -1277,11 +1581,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const ethiopianMonthDisplay = document.getElementById('ethiopian-month');
     if (ethiopianMonthDisplay) {
+        // This will now display the CURRENT Ethiopian month, but the validation will use the amended one if set.
         const todayStr = new Date().toISOString().split('T')[0];
         fetch(`http://localhost:3000/convert-to-ethiopian?date=${todayStr}`)
             .then(res => res.json())
             .then(currentEC => {
-                const ethiopianMonths = ["Meskerem", "Tikimt", "Hidar", "Tahsas", "Ter", "Yekatit", "Megabit", "Miazia", "Genbot", "Sene", "Hamle", "Nehase", "Pagume"];
                 ethiopianMonthDisplay.textContent = `(${ethiopianMonths[currentEC.month - 1]} ${currentEC.year} E.C.)`;
             })
             .catch(err => {
@@ -1458,5 +1762,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    reloadTableData();
+    // Restore amendment mode state if it was active before
+    restoreAmendmentState().then(() => {
+        // If not in amendment mode, load normal workspace data
+        if (!isAmendmentMode) {
+            reloadTableData();
+        }
+    });
 });

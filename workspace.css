@@ -84,6 +84,37 @@ body {
 .page-header p { display: none; } /* Hide the paragraph */
 .controls { display: flex; gap: 0.75rem; flex-shrink: 0; }
 
+/* Amendment Mode Indicator */
+.amendment-mode-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    margin-top: 0.5rem;
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 2px solid #f59e0b;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #92400e;
+    box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+.amendment-mode-indicator span {
+    font-weight: 700;
+    color: #78350f;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2);
+    }
+    50% {
+        box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+    }
+}
+
 /* 4. Buttons */
 .btn {
   display: inline-flex;

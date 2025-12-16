@@ -308,30 +308,88 @@ document.addEventListener('DOMContentLoaded', () => {
         customNotificationModal.style.display = 'flex';
     }
     
-    // --- VAT REPORT LOGIC ---
-    const fetchVatReport = async (startDate, endDate) => {
-        try {
-            const response = await fetch(`http://localhost:3000/reports/vat?startDate=${startDate}&endDate=${endDate}`);
-            const reportData = await response.json();
-            console.log(reportData)
-            if (response.ok) renderVatReport(reportData);
-            else showNotification(`Error fetching VAT report: ${reportData.error}`);
-        } catch (error) {
-            showNotification('Network error fetching VAT report. Please check server connection.');
-        }
+    // --- VAT REPORT LOGIC WITH PAGINATION ---
+    let vatReportState = {
+        startDate: null,
+        endDate: null,
+        currentOffset: 0,
+        pageSize: 20, // Load 20 records at a time
+        isLoading: false,
+        hasMore: true,
+        totalRecords: 0,
+        totalVat: 0,
+        totalBase: 0,
+        totalAmount: 0
     };
-    
-    const renderVatReport = (data) => {
-        vatReportTableBody.innerHTML = '';
-        if (data.length === 0) {
-            vatReportTableBody.innerHTML = '<tr><td colspan="13" class="placeholder-cell">No data for the selected date range.</td></tr>';
-            summaryVatAmount.textContent = '0.00';
-            summaryBaseTotal.textContent = '0.00';
-            summaryTotalAmount.textContent = '0.00';
-            return;
+
+    const vatReportTableWrapper = document.querySelector('#vat-report-section .table-wrapper');
+
+    const fetchVatReport = async (startDate, endDate, reset = true) => {
+        if (vatReportState.isLoading) return;
+        
+        vatReportState.isLoading = true;
+        
+        if (reset) {
+            // Reset state for new report
+            vatReportState.startDate = startDate;
+            vatReportState.endDate = endDate;
+            vatReportState.currentOffset = 0;
+            vatReportState.hasMore = true;
+            vatReportState.totalVat = 0;
+            vatReportState.totalBase = 0;
+            vatReportState.totalAmount = 0;
+            vatReportTableBody.innerHTML = '';
         }
 
-        let totalVat = 0, totalBase = 0, totalAmount = 0;
+        try {
+            const url = `http://localhost:3000/reports/vat?startDate=${startDate}&endDate=${endDate}&limit=${vatReportState.pageSize}&offset=${vatReportState.currentOffset}`;
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            if (response.ok) {
+                // Handle paginated response
+                const data = result.data || result; // Support both paginated and non-paginated responses
+                const hasMore = result.hasMore !== undefined ? result.hasMore : (data.length === vatReportState.pageSize);
+                
+                if (reset && data.length === 0) {
+                    vatReportTableBody.innerHTML = '<tr><td colspan="11" class="placeholder-cell">No data for the selected date range.</td></tr>';
+                    summaryVatAmount.textContent = '0.00';
+                    summaryBaseTotal.textContent = '0.00';
+                    summaryTotalAmount.textContent = '0.00';
+                    vatReportState.isLoading = false;
+                    return;
+                }
+
+                renderVatReportChunk(data, reset);
+                
+                vatReportState.currentOffset += data.length;
+                vatReportState.hasMore = hasMore;
+                if (result.total !== undefined) {
+                    vatReportState.totalRecords = result.total;
+                }
+            } else {
+                showNotification(`Error fetching VAT report: ${result.error}`);
+            }
+        } catch (error) {
+            showNotification('Network error fetching VAT report. Please check server connection.');
+        } finally {
+            vatReportState.isLoading = false;
+        }
+    };
+
+    const renderVatReportChunk = (data, reset) => {
+        // Remove loading indicator if present
+        const loadingRow = vatReportTableBody.querySelector('.loading-row');
+        if (loadingRow) {
+            loadingRow.remove();
+        }
+
+        if (reset) {
+            vatReportState.totalVat = 0;
+            vatReportState.totalBase = 0;
+            vatReportState.totalAmount = 0;
+        }
+
         data.forEach(record => {
             const baseTotal = (record.total_amount || 0) - (record.vat_amount || 0);
             
@@ -356,15 +414,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td class="is-numeric">${(record.vat_amount || 0).toFixed(2)}</td>
                 <td class="is-numeric">${(record.total_amount || 0).toFixed(2)}</td>
             `;
-            totalVat += record.vat_amount || 0;
-            totalBase += baseTotal;
-            totalAmount += record.total_amount || 0;
+            
+            vatReportState.totalVat += record.vat_amount || 0;
+            vatReportState.totalBase += baseTotal;
+            vatReportState.totalAmount += record.total_amount || 0;
         });
 
-        summaryVatAmount.textContent = totalVat.toFixed(2);
-        summaryBaseTotal.textContent = totalBase.toFixed(2);
-        summaryTotalAmount.textContent = totalAmount.toFixed(2);
+        // Update summary totals
+        summaryVatAmount.textContent = vatReportState.totalVat.toFixed(2);
+        summaryBaseTotal.textContent = vatReportState.totalBase.toFixed(2);
+        summaryTotalAmount.textContent = vatReportState.totalAmount.toFixed(2);
+
+        // Add loading indicator if there's more data to load
+        if (vatReportState.hasMore) {
+            const loadingRow = vatReportTableBody.insertRow();
+            loadingRow.className = 'loading-row';
+            loadingRow.innerHTML = '<td colspan="11" class="placeholder-cell" style="text-align: center; padding: 1rem;">Loading more records...</td>';
+        }
     };
+
+    // Infinite scroll handler with throttling
+    let scrollTimeout;
+    if (vatReportTableWrapper) {
+        vatReportTableWrapper.addEventListener('scroll', () => {
+            // Throttle scroll events
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                const wrapper = vatReportTableWrapper;
+                const scrollTop = wrapper.scrollTop;
+                const scrollHeight = wrapper.scrollHeight;
+                const clientHeight = wrapper.clientHeight;
+                
+                // Load more when user scrolls to within 200px of bottom
+                if (scrollTop + clientHeight >= scrollHeight - 200 && 
+                    vatReportState.hasMore && 
+                    !vatReportState.isLoading &&
+                    vatReportState.startDate) {
+                    fetchVatReport(vatReportState.startDate, vatReportState.endDate, false);
+                }
+            }, 100); // Throttle to every 100ms
+        });
+    }
 
     generateVatReportBtn?.addEventListener('click', async () => {
         const etYear = parseInt(ethiopianYearInput.value, 10);
@@ -760,28 +850,90 @@ function renderSummaryReport(reportData, startDate, endDate) {
         }
     }
 
-    const fetchYearlyReport = async (subcategoryId, startDate, endDate) => {
+    // --- YEARLY REPORT LOGIC WITH PAGINATION ---
+    let yearlyReportState = {
+        subcategoryId: null,
+        startDate: null,
+        endDate: null,
+        currentOffset: 0,
+        pageSize: 20, // Load 20 records at a time
+        isLoading: false,
+        hasMore: true,
+        totalRecords: 0,
+        totalVat: 0,
+        totalBase: 0,
+        totalAmount: 0
+    };
+
+    const yearlyReportTableWrapper = document.querySelector('#yearly-report-section .table-wrapper');
+
+    const fetchYearlyReport = async (subcategoryId, startDate, endDate, reset = true) => {
+        if (yearlyReportState.isLoading) return;
+        
+        yearlyReportState.isLoading = true;
+        
+        if (reset) {
+            // Reset state for new report
+            yearlyReportState.subcategoryId = subcategoryId;
+            yearlyReportState.startDate = startDate;
+            yearlyReportState.endDate = endDate;
+            yearlyReportState.currentOffset = 0;
+            yearlyReportState.hasMore = true;
+            yearlyReportState.totalVat = 0;
+            yearlyReportState.totalBase = 0;
+            yearlyReportState.totalAmount = 0;
+            yearlyReportTableBody.innerHTML = '';
+        }
+
         try {
-            const response = await fetch(`http://localhost:3000/reports/yearly?subcategory_id=${subcategoryId}&startDate=${startDate}&endDate=${endDate}`);
-            const reportData = await response.json();
-            if (response.ok) renderYearlyReport(reportData);
-            else showNotification(`Error fetching Yearly report: ${reportData.error}`);
+            const url = `http://localhost:3000/reports/yearly?subcategory_id=${subcategoryId}&startDate=${startDate}&endDate=${endDate}&limit=${yearlyReportState.pageSize}&offset=${yearlyReportState.currentOffset}`;
+            const response = await fetch(url);
+            const result = await response.json();
+            
+            if (response.ok) {
+                // Handle paginated response
+                const data = result.data || result; // Support both paginated and non-paginated responses
+                const hasMore = result.hasMore !== undefined ? result.hasMore : (data.length === yearlyReportState.pageSize);
+                
+                if (reset && data.length === 0) {
+                    yearlyReportTableBody.innerHTML = '<tr><td colspan="11" class="placeholder-cell">No data for the selected subcategory and year.</td></tr>';
+                    yearlySummaryVatAmount.textContent = '0.00';
+                    yearlySummaryBaseTotal.textContent = '0.00';
+                    yearlySummaryTotalAmount.textContent = '0.00';
+                    yearlyReportState.isLoading = false;
+                    return;
+                }
+
+                renderYearlyReportChunk(data, reset);
+                
+                yearlyReportState.currentOffset += data.length;
+                yearlyReportState.hasMore = hasMore;
+                if (result.total !== undefined) {
+                    yearlyReportState.totalRecords = result.total;
+                }
+            } else {
+                showNotification(`Error fetching Yearly report: ${result.error}`);
+            }
         } catch (error) {
             showNotification('Network error fetching Yearly report. Please check server connection.');
+        } finally {
+            yearlyReportState.isLoading = false;
         }
     };
 
-    const renderYearlyReport = (data) => {
-        yearlyReportTableBody.innerHTML = '';
-        if (data.length === 0) {
-            yearlyReportTableBody.innerHTML = '<tr><td colspan="13" class="placeholder-cell">No data for the selected subcategory and year.</td></tr>';
-            yearlySummaryVatAmount.textContent = '0.00';
-            yearlySummaryBaseTotal.textContent = '0.00';
-            yearlySummaryTotalAmount.textContent = '0.00';
-            return;
+    const renderYearlyReportChunk = (data, reset) => {
+        // Remove loading indicator if present
+        const loadingRow = yearlyReportTableBody.querySelector('.loading-row');
+        if (loadingRow) {
+            loadingRow.remove();
         }
 
-        let totalVat = 0, totalBase = 0, totalAmount = 0;
+        if (reset) {
+            yearlyReportState.totalVat = 0;
+            yearlyReportState.totalBase = 0;
+            yearlyReportState.totalAmount = 0;
+        }
+
         data.forEach(record => {
             const baseTotal = (record.total_amount || 0) - (record.vat_amount || 0);
             
@@ -806,15 +958,47 @@ function renderSummaryReport(reportData, startDate, endDate) {
                 <td class="is-numeric">${baseTotal.toFixed(2)}</td>
                 <td class="is-numeric">${(record.total_amount || 0).toFixed(2)}</td>
             `;
-            totalVat += record.vat_amount || 0;
-            totalBase += baseTotal;
-            totalAmount += record.total_amount || 0;
+            
+            yearlyReportState.totalVat += record.vat_amount || 0;
+            yearlyReportState.totalBase += baseTotal;
+            yearlyReportState.totalAmount += record.total_amount || 0;
         });
 
-        yearlySummaryVatAmount.textContent = totalVat.toFixed(2);
-        yearlySummaryBaseTotal.textContent = totalBase.toFixed(2);
-        yearlySummaryTotalAmount.textContent = totalAmount.toFixed(2);
+        // Update summary totals
+        yearlySummaryVatAmount.textContent = yearlyReportState.totalVat.toFixed(2);
+        yearlySummaryBaseTotal.textContent = yearlyReportState.totalBase.toFixed(2);
+        yearlySummaryTotalAmount.textContent = yearlyReportState.totalAmount.toFixed(2);
+
+        // Add loading indicator if there's more data to load
+        if (yearlyReportState.hasMore) {
+            const loadingRow = yearlyReportTableBody.insertRow();
+            loadingRow.className = 'loading-row';
+            loadingRow.innerHTML = '<td colspan="11" class="placeholder-cell" style="text-align: center; padding: 1rem;">Loading more records...</td>';
+        }
     };
+
+    // Infinite scroll handler for yearly report
+    let yearlyScrollTimeout;
+    if (yearlyReportTableWrapper) {
+        yearlyReportTableWrapper.addEventListener('scroll', () => {
+            // Throttle scroll events
+            clearTimeout(yearlyScrollTimeout);
+            yearlyScrollTimeout = setTimeout(() => {
+                const wrapper = yearlyReportTableWrapper;
+                const scrollTop = wrapper.scrollTop;
+                const scrollHeight = wrapper.scrollHeight;
+                const clientHeight = wrapper.clientHeight;
+                
+                // Load more when user scrolls to within 200px of bottom
+                if (scrollTop + clientHeight >= scrollHeight - 200 && 
+                    yearlyReportState.hasMore && 
+                    !yearlyReportState.isLoading &&
+                    yearlyReportState.startDate) {
+                    fetchYearlyReport(yearlyReportState.subcategoryId, yearlyReportState.startDate, yearlyReportState.endDate, false);
+                }
+            }, 100); // Throttle to every 100ms
+        });
+    }
 
     generateYearlyReportBtn?.addEventListener('click', async () => {
         const subcategoryId = yearlySubcategorySelect.value;
@@ -835,7 +1019,7 @@ function renderSummaryReport(reportData, startDate, endDate) {
             const startDate = `${range.startDate.year}-${String(range.startDate.month).padStart(2, '0')}-${String(range.startDate.day).padStart(2, '0')}`;
             const endDate = `${range.endDate.year}-${String(range.endDate.month).padStart(2, '0')}-${String(range.endDate.day).padStart(2, '0')}`;
             console.log(startDate,endDate)
-            fetchYearlyReport(subcategoryId, startDate, endDate);
+            fetchYearlyReport(subcategoryId, startDate, endDate, true);
         }
     });
     // Function to format a single date part as YYYY-DD-MM

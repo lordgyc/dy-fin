@@ -1518,16 +1518,20 @@ app.get('/vendors', (req, res) => {
   });
   // *** MODIFICATION END ***
 
-  // New endpoint for VAT Report
+  // New endpoint for VAT Report with pagination support
   app.get('/reports/vat', (req, res) => {
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, limit, offset } = req.query;
 
       if (!startDate || !endDate) {
           return res.status(400).json({ error: 'Start date and end date are required.' });
       }
 
       const finalEndDate = endDate;
-       const sql = `
+      const pageLimit = limit ? parseInt(limit, 10) : null;
+      const pageOffset = offset ? parseInt(offset, 10) : null;
+      
+      // Base query
+      let sql = `
           SELECT
               pr.purchase_id, pr.purchase_date, pr.quantity, pr.unit_price, pr.vat_amount,
               pr.fs_number, pr.total_amount, pr.vat_percentage, pr.mrc_number, pr.unit,
@@ -1536,29 +1540,62 @@ app.get('/vendors', (req, res) => {
           JOIN Vendors v ON pr.vendor_id = v.vendor_id
           JOIN Items i ON pr.item_id = i.item_id
           WHERE DATE(pr.posted_date) BETWEEN ? AND ? AND pr.vat_amount > 0
-          ORDER BY v.vendor_name, pr.posted_date;
+          ORDER BY v.vendor_name, pr.posted_date
       `;
+      
+      const params = [startDate, finalEndDate];
+      
+      // Add pagination if provided
+      if (pageLimit !== null) {
+          sql += ` LIMIT ?`;
+          params.push(pageLimit);
+          if (pageOffset !== null) {
+              sql += ` OFFSET ?`;
+              params.push(pageOffset);
+          }
+      }
+      
+      sql += ';';
 
-
-      db.all(sql, [startDate, finalEndDate], (err, rows) => {
+      db.all(sql, params, (err, rows) => {
           if (err) {
               console.error('Error fetching VAT report:', err.message);
               res.status(500).json({ error: 'Failed to fetch VAT report.' });
           } else {
-              res.json(rows);
+              // Also get total count for pagination info
+              if (pageLimit !== null) {
+                  db.get(`SELECT COUNT(*) as total FROM Purchase_Records pr WHERE DATE(pr.posted_date) BETWEEN ? AND ? AND pr.vat_amount > 0`, 
+                      [startDate, finalEndDate], (countErr, countRow) => {
+                          if (countErr) {
+                              res.json(rows); // Return rows even if count fails
+                          } else {
+                              res.json({
+                                  data: rows,
+                                  total: countRow.total,
+                                  hasMore: (pageOffset || 0) + rows.length < countRow.total
+                              });
+                          }
+                      });
+              } else {
+                  res.json(rows);
+              }
           }
       });
   });
 
-  // New endpoint for Yearly Report
+  // New endpoint for Yearly Report with pagination support
   app.get('/reports/yearly', (req, res) => {
-      const { subcategory_id, startDate, endDate } = req.query;
+      const { subcategory_id, startDate, endDate, limit, offset } = req.query;
       console.log(startDate, endDate, "this is the one for used for generating report after getting the proper")
       if (!subcategory_id || !startDate || !endDate) {
           return res.status(400).json({ error: 'Subcategory ID, start date, and end date are required.' });
       }
 
-      const sql = `
+      const pageLimit = limit ? parseInt(limit, 10) : null;
+      const pageOffset = offset ? parseInt(offset, 10) : null;
+
+      // Base query
+      let sql = `
           SELECT
               pr.purchase_id, pr.purchase_date, pr.quantity, pr.unit_price, pr.vat_amount,
               pr.fs_number, pr.total_amount, pr.mrc_number,
@@ -1568,15 +1605,45 @@ app.get('/vendors', (req, res) => {
           JOIN Items i ON pr.item_id = i.item_id
           WHERE i.subcategory_id = ? 
             AND DATE(pr.posted_date) BETWEEN ? AND ?
-          ORDER BY pr.posted_date, v.vendor_name;
+          ORDER BY pr.posted_date, v.vendor_name
       `;
+      
+      const params = [subcategory_id, startDate, endDate];
+      
+      // Add pagination if provided
+      if (pageLimit !== null) {
+          sql += ` LIMIT ?`;
+          params.push(pageLimit);
+          if (pageOffset !== null) {
+              sql += ` OFFSET ?`;
+              params.push(pageOffset);
+          }
+      }
+      
+      sql += ';';
 
-      db.all(sql, [subcategory_id, startDate, endDate], (err, rows) => {
+      db.all(sql, params, (err, rows) => {
           if (err) {
               console.error('Error fetching Yearly report:', err.message);
               res.status(500).json({ error: 'Failed to fetch Yearly report.' });
           } else {
-              res.json(rows);
+              // Also get total count for pagination info
+              if (pageLimit !== null) {
+                  db.get(`SELECT COUNT(*) as total FROM Purchase_Records pr JOIN Items i ON pr.item_id = i.item_id WHERE i.subcategory_id = ? AND DATE(pr.posted_date) BETWEEN ? AND ?`, 
+                      [subcategory_id, startDate, endDate], (countErr, countRow) => {
+                          if (countErr) {
+                              res.json(rows); // Return rows even if count fails
+                          } else {
+                              res.json({
+                                  data: rows,
+                                  total: countRow.total,
+                                  hasMore: (pageOffset || 0) + rows.length < countRow.total
+                              });
+                          }
+                      });
+              } else {
+                  res.json(rows);
+              }
           }
       });
   });

@@ -24,6 +24,9 @@
     <div class="page-header">
       <div>
         <h1 class="page-title">Workspace <span id="ethiopian-month" style="font-size: 1.2rem; color: var(--text-muted); font-weight: 500;"></span></h1>
+        <div id="amendment-mode-indicator" class="amendment-mode-indicator" style="display: none;">
+            Amendment Mode: <span id="amendment-month-display"></span>
+        </div>
       </div>
       <div class="controls">
         <div id="posted-date-controls" style="display: none; align-items: center; gap: 0.5rem;">
@@ -31,6 +34,7 @@
             <button class="btn" id="load-posted-btn" title="Load posted records for selected date">Load</button>
         </div>
         <button class="btn btn-secondary" id="view-posted-btn" title="View records that have already been posted">View Posted</button>
+        <button class="btn btn-secondary" id="amendments-btn" title="Adjust acceptable month range for amendments">Amendments</button>
         <button class="btn btn-secondary" id="back-to-workspace-btn" style="display: none;" title="Return to the main workspace">Back to Workspace</button>
         
         <div id="main-action-buttons" style="display: inline-flex; gap: 0.5rem;">
@@ -76,26 +80,49 @@
     </div>
   </div>
   <!--modal for posted date-->
-  <div id = "overlay" style = "display : none"class="modal-overlay">
-  
-  <div id="post-prompt"class="modal-card">
-    
-    <div class="modal-header">
-      <h2 class="modal-title">Select Date</h2>
-      <p class="modal-subtitle">Enter the posted date in YYYY/DD/MM format</p>
+  <div id="overlay" style="display: none;" class="modal-overlay">
+    <div id="post-prompt" class="modal-card">
+        <div class="modal-header">
+            <h2 class="modal-title">Select Date</h2>
+            <p class="modal-subtitle">Enter the posted date in YYYY/DD/MM format</p>
+        </div>
+        <div class="modal-body">
+            <input type="date" id="post-date" class="modal-input">
+        </div>
+        <div class="modal-footer">
+            <button id="save-post" class="modal-btn-primary">Confirm Date</button>
+            <button class="modal-btn-secondary" id="postc">Cancel</button>
+        </div>
     </div>
-
-    <div class="modal-body">
-      <input type="date" id="post-date" class="modal-input">
-    </div>
-
-    <div class="modal-footer">
-      <button id="save-post" class="modal-btn-primary">Confirm Date</button>
-      <button class="modal-btn-secondary" id = postc>Cancel</button>
-    </div>
-
   </div>
-</div>
+
+  <!-- Amendments Month Selection Modal -->
+  <div id="amendments-modal-overlay" style="display: none;" class="modal-overlay">
+    <div id="amendments-modal-content" class="modal-card">
+        <div class="modal-header">
+            <h2 class="modal-title">Select Amendment Month (E.C.)</h2>
+            <p class="modal-subtitle">Choose the Ethiopian year and month to set the acceptable date range.</p>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="amendments-year-select">Year</label>
+                <select id="amendments-year-select" class="modal-input"></select>
+            </div>
+            <div class="form-group">
+                <label for="amendments-month-select">Month</label>
+                <select id="amendments-month-select" class="modal-input"></select>
+            </div>
+            <div class="form-group">
+                <label for="amendments-posted-date-picker">Posted Date</label>
+                <input type="date" id="amendments-posted-date-picker" class="modal-input">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="amendments-confirm-btn" class="modal-btn-primary">Confirm Month</button>
+            <button class="modal-btn-secondary" id="amendments-cancel-btn">Cancel</button>
+        </div>
+    </div>
+  </div>
 
   <!-- Add Vendor Modal -->
   <div id="addVendorModal" class="modal">
