@@ -202,7 +202,14 @@ body {
   .card { border: none; box-shadow: none; border-radius: 0; overflow: visible; }
   .table-wrapper { overflow: visible; max-height: none; }
   .table { border: 1px solid #ccc; width: 100%; table-layout: fixed; border-collapse: collapse; margin-bottom: 1rem; }
-  .table th, .table td { padding: 0.4rem 0.6rem; border: 1px solid #ddd; word-wrap: break-word; }
+  .table th, .table td {
+    padding: 0.4rem 0.6rem;
+    border: 1px solid #ddd;
+    /* Allow long text (like subcategory names) to wrap so it doesn't push columns off the page */
+    white-space: normal;
+    word-wrap: break-word;
+    word-break: break-word;
+  }
   .table thead th { background: #e9ecef !important; color: #333 !important; border-color: #ccc !important; font-size: 9pt; font-weight: 700; text-transform: uppercase; }
   .summary-report-table { table-layout: auto; }
   .summary-report-table th, .summary-report-table td { font-size: 8pt; padding: 0.2rem 0.4rem; }
