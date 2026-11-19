@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DY Finance – Workspace</title>
+    <link rel="stylesheet" href="workspace.css">
+    <link rel="stylesheet" href="theme.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="container header-inner">
+      <a class="logo" href="/" aria-label="DY Finance Home">
+        <img src="./assets/dy-finance-logo.svg" alt="DY Finance" />
+      </a>
+      <nav class="nav">
+        <a class="btn btn-ghost" id="back-to-login-btn" href="./index.html">Back to Login</a>
+        <a class="btn btn-primary" id="go-to-reports-btn" href="./reports.html">Go to Reports</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <div id="fiscal-year-locked-notice" class="fiscal-year-locked-notice" role="status" hidden></div>
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">Workspace <span id="ethiopian-month" style="font-size: 1.2rem; color: var(--text-muted); font-weight: 500;"></span></h1>
+        <div id="amendment-mode-indicator" class="amendment-mode-indicator" style="display: none;">
+            Amendment Mode: <span id="amendment-month-display"></span>
+        </div>
+      </div>
+      <div class="controls">
+        <div id="posted-date-controls" style="display: none; align-items: center; gap: 0.5rem;">
+            <input type="date" id="posted-date-picker" class="input">
+            <button class="btn" id="load-posted-btn" title="Load posted records for selected date">Load</button>
+        </div>
+        <button class="btn btn-secondary" id="view-posted-btn" title="View records that have already been posted">View Posted</button>
+        <button class="btn btn-secondary" id="amendments-btn" title="Adjust acceptable month range for amendments">Amendments</button>
+        <button class="btn btn-secondary" id="back-to-workspace-btn" style="display: none;" title="Return to the main workspace">Back to Workspace</button>
+        
+        <div id="main-action-buttons" style="display: inline-flex; gap: 0.5rem;">
+            <button class="btn" id="open-add-vendor-modal-btn" title="Add a new vendor (Ctrl+V)">Add Vendor</button>
+            <button class="btn" id="sync-logs-btn" title="Post all current records and sync activity logs">
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 1-9 9c-4.97 0-9-4.03-9-9s4.03-9 9-9"/><path d="M21 3v5h-5"/><path d="M3 12a9 9 0 0 1 9-9c1.61 0 3.1.42 4.37 1.17L21 3"/></svg>
+              <span>Post</span>
+            </button>
+            <button class="btn btn-primary" id="add-row-btn" title="Add a new entry row (Ctrl+T)">Add New Row</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="purchase-groups-container" class="purchase-groups-container">
+      <!-- Purchase group components will be dynamically inserted here -->
+    </div>
+
+    <footer class="summary-footer">
+        <div class="summary-content">
+            <div class="summary-label"><strong>Workspace Summary</strong></div>
+            <div class="summary-totals">
+                <div class="summary-item">
+                    <span>Base Total:</span>
+                    <span class="is-numeric" id="summary-vat-exclude">0.00</span>
+                </div>
+                <div class="summary-item">
+                    <span>Total VAT:</span>
+                    <span class="is-numeric" id="summary-total-vat">0.00</span>
+                </div>
+                <div class="summary-item summary-grand-total">
+                    <span>Grand Total:</span>
+                    <strong class="is-numeric" id="summary-subtotal">0.00</strong>
+                </div>
+            </div>
+        </div>
+    </footer>
+  </main>
+
+  <div id="notification-modal" class="notification-modal">
+    <div class="modal-content">
+        <span class="close-button">&times;</span>
+        <p id="notification-message"></p>
+    </div>
+  </div>
+  <!--modal for posted date-->
+  <div id="overlay" style="display: none;" class="modal-overlay">
+    <div id="post-prompt" class="modal-card">
+        <div class="modal-header">
+            <h2 class="modal-title">Select Date</h2>
+            <p class="modal-subtitle">Enter the posted date in YYYY/DD/MM format</p>
+        </div>
+        <div class="modal-body">
+            <input type="date" id="post-date" class="modal-input">
+        </div>
+        <div class="modal-footer">
+            <button id="save-post" class="modal-btn-primary">Confirm Date</button>
+            <button class="modal-btn-secondary" id="postc">Cancel</button>
+        </div>
+    </div>
+  </div>
+
+  <!-- Amendments Month Selection Modal -->
+  <div id="amendments-modal-overlay" style="display: none;" class="modal-overlay">
+    <div id="amendments-modal-content" class="modal-card">
+        <div class="modal-header">
+            <h2 class="modal-title">Select Amendment Month (E.C.)</h2>
+            <p class="modal-subtitle">Choose the Ethiopian year and month to set the acceptable date range.</p>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="amendments-year-select">Year</label>
+                <select id="amendments-year-select" class="modal-input"></select>
+            </div>
+            <div class="form-group">
+                <label for="amendments-month-select">Month</label>
+                <select id="amendments-month-select" class="modal-input"></select>
+            </div>
+            <div class="form-group">
+                <label for="amendments-posted-date-picker">Posted Date</label>
+                <input type="date" id="amendments-posted-date-picker" class="modal-input">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="amendments-confirm-btn" class="modal-btn-primary">Confirm Month</button>
+            <button class="modal-btn-secondary" id="amendments-cancel-btn">Cancel</button>
+        </div>
+    </div>
+  </div>
+
+  <!-- Add Vendor Modal -->
+  <div id="addVendorModal" class="modal">
+      <div class="modal-content">
+          <div class="modal-header">
+              <h2 id="vendorModalTitle">Add New Vendor</h2>
+              <button class="close-btn">&times;</button>
+          </div>
+          <form id="addVendorForm" class="modal-body">
+              <input type="hidden" id="vendorId" name="vendorId">
+              <div class="form-group">
+                  <label for="vendorName">Vendor Name</label>
+                  <input type="text" id="vendorName" name="vendorName" class="input" required />
+              </div>
+              <div class="form-group">
+                  <label for="tinNumber">TIN Number</label>
+                  <input type="text" id="tinNumber" name="tinNumber" class="input" required />
+              </div>
+              <div class="form-group">
+                  <label>MRC Numbers</label>
+                  <div id="mrcContainer">
+                       <div class="mrc-input-group">
+                          <input type="text" name="mrcNumbers[]" class="input"/>
+                       </div>
+                  </div>
+                  <button type="button" id="addMrcBtn" class="btn" style="margin-top: 0.5rem;">Add MRC Field</button>
+              </div>
+              <div class="modal-footer">
+                  <button type="button" class="btn close-btn">Cancel</button>
+                  <button type="submit" class="btn btn-primary">Save Vendor</button>
+              </div>
+          </form>
+      </div>
+  </div>
+
+  <script src="workspace.js"></script>
+
+</body>
+</html>

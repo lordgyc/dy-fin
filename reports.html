@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DY Finance – Reports</title>
+    <link rel="stylesheet" href="./report.css">
+    <link rel="stylesheet" href="./node_modules/@fortawesome/fontawesome-free/css/all.min.css">
+    <link rel="stylesheet" href="./theme.css">
+    <script type="text/javascript" src="https://unpkg.com/xlsx@0.15.1/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+
+    <header class="header">
+        <div class="container header-inner">
+            <a class="logo" href="./index.html" aria-label="DY Finance Home">
+                <img src="./assets/dy-finance-logo.svg" alt="DY Finance" />
+            </a>
+            <nav class="nav">
+                <a id="back-to-login-btn" class="btn btn-ghost" href="./index.html">Back to Login</a>
+                <a id="go-to-workspace-btn" class="btn btn-primary" href="./workspace.html">Go to Workspace</a>
+                <div class="separator"></div>
+                <div class="dropdown">
+                    <button id="reports-dropdown-btn" class="btn dropdown-toggle">
+                        Reports
+                        <span class="dropdown-arrow">▼</span>
+                    </button>
+                    <div class="dropdown-menu">
+                        <button class="dropdown-item" data-section="vat-report-section">VAT Report</button>
+                        <button class="dropdown-item" data-section="jv-report-section">JV Report</button>
+                        <button class="dropdown-item" data-section="summary-report-section">Summary Report</button>
+                        <button class="dropdown-item" data-section="yearly-report-section">Yearly Report</button>
+                    </div>
+                </div>
+                <button id="management-button" class="btn" data-section="management-section">Management</button>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Default Welcome Message -->
+        <section id="reports-page-default-message" class="welcome-card">
+            <h1>Reports & Management</h1>
+            <p class="card-desc">Select a report from the header to view data or manage application settings.</p>
+        </section>
+
+        <!-- VAT Report Section -->
+        <section id="vat-report-section" class="page-section report-section" style="display: none;">
+            <div class="page-header">
+                <h1 id="vat-report-title">VAT Report</h1>
+                <div class="controls">
+                    <select id="ethiopian-month-select" class="input" title="Ethiopian Month">
+                        <option value="1">Meskerem</option>
+                        <option value="2">Tekemt</option>
+                        <option value="3">Hidar</option>
+                        <option value="4">Tahsas</option>
+                        <option value="5">Tir</option>
+                        <option value="6">Yekatit</option>
+                        <option value="7">Megabit</option>
+                        <option value="8">Miyazya</option>
+                        <option value="9">Ginbot</option>
+                        <option value="10">Sene</option>
+                        <option value="11">Hamle</option>
+                        <option value="12">Nehase</option>
+                        <option value="13">Paguemen</option>
+                    </select>
+                    <button id="generate-vat-report-btn" class="btn">Generate</button>
+                    <button id="export-vat-report-btn" class="btn btn-primary">Export to Excel</button>
+                </div>
+            </div>
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table" id="vat-report-table">
+                        <thead>
+                            <tr><th>TIN No</th><th>Vendor Name</th><th>Purchase Date</th><th>MRC No</th><th>FS Number</th><th>Item Name</th><th class="is-numeric">Quantity</th><th class="is-numeric">Unit Price</th><th class="is-numeric">Base Total</th><th class="is-numeric">VAT Amount</th><th class="is-numeric">Total Amount</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="11" class="placeholder-cell">Generate a report to see data.</td></tr>
+                        </tbody>
+                        <tfoot>
+                            <tr><td colspan="8"><strong>Total Summary</strong></td><td id="summary-base-total" class="is-numeric">0.00</td><td id="summary-vat-amount" class="is-numeric">0.00</td><td id="summary-total-amount" class="is-numeric"><strong>0.00</strong></td></tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- JV Report Section -->
+        <section id="jv-report-section" class="page-section report-section" style="display: none;">
+            <div class="page-header">
+                <h1>JV Report</h1>
+                <div class="controls">
+                    <!-- Custom JV Calendar Picker -->
+                    <div class="jv-cal-wrapper" id="jv-cal-wrapper">
+                        <input type="text" id="single-date" class="input jv-cal-input" placeholder="Select date" readonly title="Select Date">
+                        <div class="jv-calendar" id="jv-calendar" style="display:none;">
+                            <div class="jv-cal-header">
+                                <button class="jv-cal-nav" id="jv-cal-prev">&#8249;</button>
+                                <span class="jv-cal-title" id="jv-cal-title"></span>
+                                <button class="jv-cal-nav" id="jv-cal-next">&#8250;</button>
+                            </div>
+                            <div class="jv-cal-grid" id="jv-cal-grid"></div>
+                        </div>
+                    </div>
+                    <button id="generate-jv-report-btn" class="btn btn-primary">Generate</button>
+                    <button id="generate-jv-pdf-btn" class="btn btn-primary">Generate PDF</button>
+
+                </div>
+            </div>
+            <div class="card">
+                <div class="table-wrapper">
+            <table class="table" id="jv-report-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">Items</th>
+                                <th colspan="2" class="is-numeric">Debt</th>
+                                <th colspan="2" class="is-numeric">Credit</th>
+                            </tr>
+                            <tr>
+                                <th class="is-numeric">Birr</th>
+                                <th class="is-numeric">Cents</th>
+                                <th class="is-numeric">Birr</th>
+                                <th class="is-numeric">Cents</th>
+                            </tr>
+                        </thead>
+                        <tbody><tr><td colspan="5" class="placeholder-cell">Generate a report to see data.</td></tr></tbody>
+                        <tfoot></tfoot>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Summary Report Section -->
+         
+        <!-- Summary Report Section -->
+             <section id="summary-report-section" class="page-section report-section" style="display: none;">
+            <div class="page-header">
+                <h1 id="summary-report-title">Summary Report</h1>
+                <div class="controls">
+                    <select id="summary-ethiopian-month-select" class="input" title="Ethiopian Month">
+                        <option value="1">Meskerem</option>
+                        <option value="2">Tekemt</option>
+                        <option value="3">Hidar</option>
+                        <option value="4">Tahsas</option>
+                        <option value="5">Tir</option>
+                        <option value="6">Yekatit</option>
+                        <option value="7">Megabit</option>
+                        <option value="8">Miyazya</option>
+                        <option value="9">Ginbot</option>
+                        <option value="10">Sene</option>
+                        <option value="11">Hamle</option>
+                        <option value="12">Nehase</option>
+                        <option value="13">Paguemen</option>
+                    </select>
+                    <button id="generate-summary-report-btn" class="btn btn-primary">Generate</button>
+                    <button id="export-summary-report-btn" class="btn btn-primary">Export to Excel</button>
+
+                </div>
+            </div>
+            <div class="card">
+                <!-- The table wrapper's existing CSS will automatically handle scrolling -->
+                <div class="table-wrapper">
+                    <table class="table" id="summary-report-table">
+                        <thead>
+                            <tr><th>Date</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="1" class="placeholder-cell">Generate a report to see data.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- PAGINATION CONTROLS REMOVED FROM HERE -->
+            </div>
+        </section>
+
+        <!-- Yearly Report Section -->
+        <section id="yearly-report-section" class="page-section report-section" style="display: none;">
+            <div class="page-header">
+                <h1 id="yearly-report-title">Yearly Report</h1>
+                <div class="controls yearly-controls">
+                    <div class="yearly-period-controls">
+                        <div class="yr-filter-toggle" role="group" aria-label="Report period">
+                            <button type="button" class="yr-toggle-btn yearly-period-btn active" data-period="yearly" aria-pressed="true">Yearly</button>
+                            <button type="button" class="yr-toggle-btn yearly-period-btn" data-period="monthly" aria-pressed="false">Monthly</button>
+                        </div>
+                        <select id="yearly-ethiopian-month-select" class="input yr-filter-select" title="Select Ethiopian month" aria-label="Select Ethiopian month" hidden>
+                            <option value="1">Meskerem</option>
+                            <option value="2">Tikimt</option>
+                            <option value="3">Hidar</option>
+                            <option value="4">Tahsas</option>
+                            <option value="5">Tir</option>
+                            <option value="6">Yekatit</option>
+                            <option value="7">Megabit</option>
+                            <option value="8">Miyazya</option>
+                            <option value="9">Ginbot</option>
+                            <option value="10">Sene</option>
+                            <option value="11">Hamle</option>
+                            <option value="12">Nehase</option>
+                            <option value="13">Pagume</option>
+                        </select>
+                    </div>
+
+                    <div class="yearly-filter-group">
+                        <select id="yearly-category-select" class="input yr-filter-select" title="Select Category">
+                            <option value="">Select Category</option>
+                        </select>
+                        <select id="yearly-subcategory-select" class="input yr-filter-select" title="Select Subcategory" disabled>
+                            <option value="">Select Subcategory</option>
+                        </select>
+                        <select id="yearly-item-select" class="input yr-filter-select" title="Select Item" disabled>
+                            <option value="">Select Item</option>
+                        </select>
+                    </div>
+
+                    <div class="yearly-action-group">
+                        <button id="generate-yearly-report-btn" class="btn btn-primary">Generate</button>
+                        <button id="export-yearly-report-btn" class="btn btn-secondary">Export to Excel</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card">
+                <div class="table-wrapper">
+                    <table class="table" id="yearly-report-table">
+                        <thead>
+                            <tr>
+                                <th>Vendor Name</th>
+                                <th>TIN No</th>
+                                <th>MRC No</th>
+                                <th>Purchase Date</th>
+                                <th>FS Number</th>
+                                <th>Item Name</th>
+                                <th class="is-numeric">Quantity</th>
+                                <th class="is-numeric">Unit Price</th>
+                                <th class="is-numeric">VAT Amount</th>
+                                <th class="is-numeric">Base Total</th>
+                                <th class="is-numeric">Total Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="11" class="placeholder-cell">Select a category and year to generate report.</td></tr>
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="8"><strong>Total Summary</strong></td>
+                                <td id="yearly-summary-vat-amount" class="is-numeric">0.00</td>
+                                <td id="yearly-summary-base-total" class="is-numeric">0.00</td>
+                                <td id="yearly-summary-total-amount" class="is-numeric"><strong>0.00</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- Management Section -->
+        <section id="management-section" class="page-section" style="display: none;">
+            <div class="page-header">
+                <div>
+                    <h1>Management</h1>
+                    <p>Manage vendors, item categories, fiscal years, and backups.</p>
+                </div>
+            </div>
+            <div class="card management-panel">
+                <div class="tabs">
+                    <button class="tab-button active" data-tab="vendor-tab">Vendors</button>
+                    <button class="tab-button" data-tab="items-tab">Items & Categories</button>
+                    <button class="tab-button" data-tab="fiscal-year-tab">Fiscal Year</button>
+                    <button class="tab-button" data-tab="backup-tab">Backup</button>
+                </div>
+                <div class="card-body">
+                    <div id="vendor-tab" class="tab-content active">
+                        <div class="content-header">
+                            <h3>Manage Vendors</h3>
+                            <button id="openModalBtn" data-action="add-vendor" class="btn btn-primary">Add Vendor</button>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="vendors-table" class="table">
+                               <thead><tr><th>Vendor Name</th><th>TIN Number</th><th>MRC Numbers</th><th>Actions</th></tr></thead>
+                               <tbody><td colspan="4" class="placeholder-cell">Loading vendors...</td></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="items-tab" class="tab-content">
+                        <!-- Management Section Header & Category Controls -->
+                        <div class="mgmt-header-card">
+                            <div class="content-header" style="margin-bottom: 1rem;">
+                                <div>
+                                    <h3 style="display: inline-flex; align-items: center; gap: 0.5rem; margin: 0;">
+                                        <i class="fas fa-layer-group" style="color: var(--primary);"></i> Categories & Subcategories
+                                    </h3>
+                                    <div class="right-click-hint-badge">
+                                        <i class="fas fa-mouse" style="color: var(--primary);"></i> Right-click Category or Subcategory dropdown for Add, Edit & Delete options
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="controls filter-row">
+                                <div class="select-wrapper flex-1">
+                                    <label class="field-label" for="itemCategorySelect">Category Filter <span class="label-hint">(Right-click for options)</span></label>
+                                    <select id="itemCategorySelect" class="input input-lg" title="Right-click for Category options"></select>
+                                </div>
+                                <div class="select-wrapper flex-1">
+                                    <label class="field-label" for="itemSubcategorySelect">Subcategory Filter <span class="label-hint">(Right-click for options)</span></label>
+                                    <select id="itemSubcategorySelect" class="input input-lg" title="Right-click for Subcategory options"></select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Add Item Card -->
+                        <div class="add-item-card">
+                            <h4 class="section-subtitle"><i class="fas fa-plus-circle" style="color: var(--primary);"></i> Add New Item</h4>
+                            <div class="controls add-item-row">
+                                <input type="text" id="newItemName" placeholder="Item Name *" class="input" style="flex: 2;">
+                                <input type="number" id="newItemUnitPrice" placeholder="Unit Price *" class="input" style="flex: 1;" step="0.01" min="0">
+                                <input type="text" id="newItemDescription" placeholder="Description (optional)" class="input" style="flex: 2;">
+                                <button id="addItemBtn" class="btn btn-primary"><i class="fas fa-plus"></i> Add Item</button>
+                            </div>
+                        </div>
+
+                        <!-- Items Toolbar: Search & Reassign Mode Toggle -->
+                        <div class="items-toolbar-card">
+                            <div class="search-box-wrapper">
+                                <i class="fas fa-search search-icon"></i>
+                                <input type="text" id="itemSearchInput" placeholder="Search items by name, description, category..." class="input search-input">
+                                <button id="clearSearchBtn" class="btn-clear-search" style="display: none;" title="Clear search">&times;</button>
+                            </div>
+
+                            <div class="toggle-mode-box">
+                                <label class="switch">
+                                    <input type="checkbox" id="toggleReassignMode">
+                                    <span class="slider round"></span>
+                                </label>
+                                <div class="toggle-label-content">
+                                    <span class="toggle-title"><i class="fas fa-exchange-alt"></i> Reassign Mode</span>
+                                    <span class="toggle-subtitle">Change item category & subcategory directly in table</span>
+                                </div>
+                            </div>
+
+                            <div style="display: flex; align-items: center; gap: 0.4rem; padding: 0.4rem 0.8rem; background: #f8fafc; border-radius: 8px; border: 1px solid var(--border);">
+                                <label style="display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.85rem; font-weight: 600; cursor: pointer; color: var(--text);">
+                                    <input type="checkbox" id="showDisabledItemsToggle"> Show Disabled Items
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Items Table -->
+                        <div class="table-wrapper">
+                             <table id="items-table" class="table">
+                               <thead>
+                                 <tr>
+                                   <th>Item Name</th>
+                                   <th>Category</th>
+                                   <th>Subcategory</th>
+                                   <th class="is-numeric">Unit Price</th>
+                                   <th>Description</th>
+                                   <th>Status</th>
+                                   <th class="action-cell">Actions</th>
+                                 </tr>
+                               </thead>
+                               <tbody><tr><td colspan="7" class="placeholder-cell">Select a category or search to see items.</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div id="fiscal-year-tab" class="tab-content">
+                        <section class="fiscal-year-management card" aria-labelledby="fiscal-year-management-title">
+                            <div>
+                                <h2 id="fiscal-year-management-title">Fiscal Year</h2>
+                                <p id="fiscal-year-status" aria-live="polite"></p>
+                            </div>
+                            <div class="controls">
+                                <label class="sr-only" for="fiscal-year-select">Active fiscal year</label>
+                                <select id="fiscal-year-select" class="input" aria-label="Active fiscal year"></select>
+                                <button id="export-fiscal-year-catalog-btn" class="btn btn-secondary" type="button">Export Catalog to Excel</button>
+                                <button id="create-fiscal-year-btn" class="btn" type="button">New Fiscal Year</button>
+                                <button id="lock-fiscal-year-btn" class="btn btn-danger" type="button">Lock Fiscal Year</button>
+                            </div>
+                        </section>
+                    </div>
+                    <div id="backup-tab" class="tab-content">
+                        <div class="content-header">
+                            <h3>Database Backup</h3>
+                        </div>
+                        <div class="form-group">
+                            <label for="backupPathInput">Backup Directory Path:</label>
+                            <input type="text" id="backupPathInput" class="input" placeholder="e.g., C:\Users\HP\Documents\Backups" />
+                            <button id="browseBackupPathBtn" class="btn">Browse</button>
+                        </div>
+                        <button id="performBackupBtn" class="btn btn-primary" style="margin-top: 1rem;">Perform Backup</button>
+                        <p id="backupStatusMessage" style="margin-top: 1rem;"></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODALS -->
+    <div id="createFiscalYearModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="createFiscalYearTitle">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="createFiscalYearTitle">Create Fiscal Year</h2>
+                <button type="button" class="close-btn" aria-label="Close">&times;</button>
+            </div>
+            <form id="createFiscalYearForm" class="modal-body">
+                <p class="fiscal-year-create-note">The active fiscal year must be permanently locked first. The new year copies its catalog, starts without purchase records, and becomes active.</p>
+                <div class="form-group">
+                    <label for="newFiscalYearInput">Ethiopian fiscal year (E.C.)</label>
+                    <input type="number" id="newFiscalYearInput" class="input" min="1" step="1" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn close-btn">Cancel</button>
+                    <button id="createFiscalYearSubmitBtn" type="submit" class="btn btn-primary">Create Fiscal Year</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="lockFiscalYearModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="lockFiscalYearTitle">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="lockFiscalYearTitle">Permanently Lock Fiscal Year</h2>
+                <button type="button" class="close-btn" aria-label="Close">&times;</button>
+            </div>
+            <form id="lockFiscalYearForm" class="modal-body">
+                <p class="fiscal-year-create-note">This cannot be undone. The selected year's catalog and purchase records will become read-only.</p>
+                <div class="form-group">
+                    <label for="lockFiscalYearPasswordInput">Amendments password</label>
+                    <input type="password" id="lockFiscalYearPasswordInput" class="input" autocomplete="current-password" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn close-btn">Cancel</button>
+                    <button id="lockFiscalYearSubmitBtn" type="submit" class="btn btn-danger">Lock Fiscal Year</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="addVendorModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="vendorModalTitle">Add New Vendor</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <form id="addVendorForm" class="modal-body">
+                <input type="hidden" id="vendorId" name="vendorId">
+                <div class="form-group">
+                    <label for="vendorName">Vendor Name</label>
+                    <input type="text" id="vendorName" name="vendorName" class="input" required />
+                </div>
+                <div class="form-group">
+                    <label for="tinNumber">TIN Number</label>
+                    <input type="text" id="tinNumber" name="tinNumber" class="input" required />
+                </div>
+                <div class="form-group">
+                    <label>MRC Numbers</label>
+                    <div id="mrcContainer">
+                         <div class="mrc-input-group">
+                            <input type="text" name="mrcNumbers[]" class="input"/>
+                         </div>
+                    </div>
+                    <button type="button" id="addMrcBtn" class="btn" style="margin-top: 0.5rem;">Add MRC Field</button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn close-btn">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Save Vendor</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="addCategoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="categoryModalTitle">Add Category</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="newCategoryNameModal">Category Name</label>
+                    <input type="text" id="newCategoryNameModal" placeholder="New Category Name" class="input">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn close-btn">Cancel</button>
+                <button id="addCategoryBtnModal" class="btn btn-primary">Add Category</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="addSubcategoryModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="subcategoryModalTitle">Add Subcategory</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="subcategoryCategorySelectModal">Parent Category</label>
+                    <select id="subcategoryCategorySelectModal" class="input"></select>
+                </div>
+                <div class="form-group">
+                    <label for="newSubcategoryNameModal">Subcategory Name</label>
+                    <input type="text" id="newSubcategoryNameModal" placeholder="New Subcategory Name" class="input">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn close-btn">Cancel</button>
+                <button id="addSubcategoryBtnModal" class="btn btn-primary">Add Subcategory</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="customConfirmationModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="customConfirmationTitle">
+        <div class="modal-content" style="max-width: 420px;">
+            <div class="modal-header">
+                <h2 id="customConfirmationTitle">Confirm action</h2>
+                <button id="closeCustomConfirmationBtn" type="button" class="close-btn" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="customConfirmationMessage"></p>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelCustomConfirmationBtn" type="button" class="btn btn-secondary">Cancel</button>
+                <button id="acceptCustomConfirmationBtn" type="button" class="btn btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="customNotificationModal" class="modal">
+        <div class="modal-content" style="max-width: 400px; text-align: center;">
+             <div class="modal-header">
+                <h2>Notification</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p id="notificationMessage" style="font-size: 1rem;"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary close-btn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reassign Mode Password Protection Modal -->
+    <div id="reassignPasswordModal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <div class="modal-header">
+                <h2 style="font-size: 1.15rem; display: flex; align-items: center; gap: 0.5rem;"><i class="fas fa-lock" style="color: var(--primary);"></i> Security Verification</h2>
+                <button class="close-btn" id="closeReassignPassModalBtn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p style="margin-top: 0; color: var(--text-muted); font-size: 0.9rem;">
+                    Please enter the security password to activate <strong>Reassign Subcategory Mode</strong>:
+                </p>
+                <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label for="reassignPasswordInput" style="font-size: 0.85rem;">Password</label>
+                    <input type="password" id="reassignPasswordInput" placeholder="Enter password..." class="input" autocomplete="off" />
+                    <p id="reassignPasswordError" style="color: #ef4444; font-size: 0.85rem; display: none; margin: 0.5rem 0 0 0; font-weight: 500;"></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancelReassignPasswordBtn" class="btn btn-ghost">Cancel</button>
+                <button id="confirmReassignPasswordBtn" class="btn btn-primary"><i class="fas fa-key"></i> Unlock Mode</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Right-Click Context Menu -->
+    <div id="customContextMenu" class="custom-context-menu" style="display: none;">
+        <div class="context-menu-header" id="contextMenuTitle">Category Options</div>
+        <div class="context-menu-item" id="ctxAddOption">
+            <i class="fas fa-plus" style="color: var(--primary);"></i> <span id="ctxAddText">Add New Category</span>
+        </div>
+        <div class="context-menu-item" id="ctxEditOption">
+            <i class="fas fa-edit" style="color: #0284c7;"></i> <span id="ctxEditText">Edit Selected Category</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item danger" id="ctxDeleteOption">
+            <i class="fas fa-trash-alt" style="color: #ef4444;"></i> <span id="ctxDeleteText">Delete Selected Category</span>
+        </div>
+    </div>
+
+    <script src="./reports.js"></script>
+</body>
+</html>

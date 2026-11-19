@@ -1,0 +1,960 @@
+:root {
+  --bg: #f5f7fb;
+  --bg-soft: #ffffff;
+  --border: #e2e8f0;
+  --text: #172033;
+  --text-muted: #64748b;
+  --primary: #4f46e5;
+  --primary-light: #eef2ff;
+  --primary-dark: #4338ca;
+  --danger: #dc4545;
+  --danger-light: #fef2f2;
+  --success: #15966a;
+  --success-light: #ecfdf5;
+  --header-height: 68px;
+  --shadow-sm: 0 1px 2px rgb(15 23 42 / 0.05);
+  --shadow: 0 2px 8px rgb(15 23 42 / 0.05);
+  --shadow-md: 0 8px 20px rgb(15 23 42 / 0.08);
+  --shadow-lg: 0 16px 40px rgb(15 23 42 / 0.14);
+}
+
+body {
+  color: var(--text);
+  background-color: var(--bg);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+.input:focus-visible,
+.modal-input:focus-visible {
+  outline: 3px solid rgb(79 70 229 / 0.28);
+  outline-offset: 2px;
+}
+
+.header {
+  background: rgb(255 255 255 / 0.96);
+  border-bottom-color: var(--border);
+  box-shadow: 0 2px 10px rgb(15 23 42 / 0.035);
+}
+
+.header-inner {
+  min-height: var(--header-height);
+  height: auto;
+  gap: 1rem;
+}
+
+.nav {
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.header .nav {
+  gap: 0.4rem;
+}
+
+.header .nav .btn {
+  min-height: 38px;
+  height: 38px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 0.825rem;
+}
+
+.header .separator {
+  margin: 0 0.25rem;
+}
+
+.container {
+  padding-left: 1.5rem;
+  padding-right: 1.5rem;
+}
+
+.page-header {
+  gap: 1rem;
+}
+
+.page-title,
+.page-header h1 {
+  color: var(--text);
+  letter-spacing: -0.035em;
+}
+
+.btn,
+.modal-btn-primary,
+.modal-btn-secondary {
+  min-height: 40px;
+  height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.btn {
+  background: #fff;
+  color: var(--text);
+}
+
+.btn:hover {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  box-shadow: none;
+  transform: none;
+}
+
+.btn:active {
+  transform: none;
+  box-shadow: none;
+}
+
+.btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.btn-primary,
+.btn-primary:hover,
+.modal-btn-primary {
+  color: #fff;
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.btn-primary:hover,
+.modal-btn-primary:hover {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn-ghost:hover {
+  background: #f1f5f9;
+  border-color: #f1f5f9;
+}
+
+.btn-secondary {
+  color: #334155;
+  background: #f8fafc;
+  border-color: var(--border);
+}
+
+.btn-secondary:hover {
+  color: var(--text);
+  background: #f1f5f9;
+}
+
+.btn-icon {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+
+.btn-icon:hover {
+  background: #f1f5f9;
+}
+
+.input,
+.modal-input {
+  min-width: 0;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background-color: #fff;
+  color: var(--text);
+  font-size: 0.875rem;
+  transition: border-color 140ms ease, box-shadow 140ms ease, background-color 140ms ease;
+}
+
+.input:hover,
+.modal-input:hover {
+  border-color: #cbd5e1;
+}
+
+.input:focus,
+.modal-input:focus {
+  border-color: var(--primary);
+  background-color: #fff;
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(79 70 229 / 0.12);
+}
+
+.header .input {
+  width: auto;
+  min-width: 132px;
+}
+
+.page-header .controls {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.page-header .controls > .input {
+  width: auto;
+}
+
+.fiscal-year-management {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+  padding: 1.25rem 1.5rem;
+}
+
+.fiscal-year-management h2 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.fiscal-year-management p {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+.fiscal-year-create-note {
+  margin: 0 0 1.25rem;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.fiscal-year-management .controls {
+  display: grid;
+  flex: 0 1 700px;
+  grid-template-columns: minmax(160px, 1fr) repeat(3, max-content);
+  gap: 0.5rem;
+}
+
+.fiscal-year-management select {
+  width: 100%;
+  min-width: 0;
+}
+
+.btn-danger {
+  color: #b42318;
+  background: #fff;
+  border-color: #fecaca;
+}
+
+.btn-danger:hover {
+  color: #991b1b;
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.fiscal-year-locked-notice {
+  margin-top: 1rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid #f3cf86;
+  border-radius: 10px;
+  background: #fffbeb;
+  color: #854d0e;
+  font-weight: 600;
+}
+
+.fiscal-year-locked-notice[hidden] {
+  display: none;
+}
+
+body.is-fiscal-year-locked #items-tab .add-item-row,
+body.is-fiscal-year-locked #items-tab .toggle-mode-box,
+body.is-fiscal-year-locked #items-table .action-cell {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.purchase-groups-container .table .input,
+.purchase-groups-container .table select {
+  height: 34px;
+  padding: 0 8px;
+  border-color: transparent;
+  border-radius: 6px;
+  background-color: transparent;
+}
+
+.purchase-groups-container .table .input:hover,
+.purchase-groups-container .table select:hover {
+  border-color: #cbd5e1;
+}
+
+.purchase-group-card,
+.card,
+.add-item-card,
+.items-toolbar-card,
+.mgmt-header-card {
+  border-color: var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+}
+
+.purchase-group-card {
+  transition: box-shadow 160ms ease;
+}
+
+.purchase-group-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.purchase-group-card .card-header,
+.table thead th {
+  background: #f8fafc;
+}
+
+.table th,
+.table td {
+  border-color: var(--border);
+}
+
+.table tbody tr:hover td {
+  background-color: #f1f5ff;
+}
+
+.table tfoot td {
+  background: #f8fafc;
+}
+
+.summary-footer {
+  background: rgb(255 255 255 / 0.97);
+  border-top-color: var(--border);
+  box-shadow: 0 -4px 16px rgb(15 23 42 / 0.06);
+}
+
+.summary-label {
+  font-size: 1rem;
+}
+
+.summary-grand-total .is-numeric {
+  color: var(--primary);
+}
+
+.modal-card,
+.modal-content,
+#confirmation-modal-content,
+#edit-code-modal-content {
+  border-radius: 14px;
+  box-shadow: var(--shadow-lg);
+}
+
+.modal-card {
+  font-family: var(--font-sans);
+}
+
+.modal-input {
+  border-width: 1px;
+}
+
+.modal-btn-primary,
+.modal-btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-btn-primary {
+  flex: 2;
+}
+
+.modal-btn-secondary {
+  flex: 1;
+  color: #334155;
+  background: #fff;
+  border-color: var(--border);
+}
+
+.modal-btn-secondary:hover {
+  background: #f8fafc;
+  color: var(--text);
+}
+
+.close-btn,
+.close-button {
+  color: var(--text-muted);
+}
+
+.tab-button {
+  min-height: 42px;
+  padding: 0 1rem;
+  font-size: 0.9rem;
+}
+
+#management-section > .page-header {
+  margin-top: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+#management-section > .page-header h1 {
+  font-size: 1.65rem;
+  line-height: 1.2;
+}
+
+#management-section > .page-header p {
+  margin: 0.35rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.management-panel {
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+}
+
+.management-panel > .tabs {
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.65rem 0.9rem 0;
+  background: linear-gradient(180deg, #fff 0%, #fbfcfe 100%);
+}
+
+.management-panel .tab-button {
+  flex: 0 0 auto;
+  min-height: 38px;
+  margin-bottom: 0.45rem;
+  padding: 0 0.95rem;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transform: none;
+  transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+
+.management-panel .tab-button:hover:not(.active) {
+  color: var(--text);
+  background: #f8fafc;
+  border-color: #edf0f5;
+}
+
+.management-panel .tab-button.active {
+  color: var(--primary-dark);
+  background: var(--primary-light);
+  border-color: #e0e7ff;
+}
+
+.management-panel > .card-body {
+  padding: 1.25rem 1.35rem;
+}
+
+.management-panel .content-header {
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.management-panel .content-header h3 {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.management-panel .table-wrapper {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.fiscal-year-management {
+  align-items: center;
+  border-color: #e5e9f2;
+  background: linear-gradient(135deg, #fff 0%, #fbfcff 100%);
+}
+
+.fiscal-year-management h2 {
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.fiscal-year-management #fiscal-year-status {
+  max-width: 620px;
+  padding-left: 0.75rem;
+  border-left: 3px solid #c7d2fe;
+  line-height: 1.55;
+}
+
+.fiscal-year-management .controls {
+  justify-content: flex-end;
+}
+
+.fiscal-year-management .controls button {
+  white-space: nowrap;
+}
+
+.yr-toggle-btn {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 0.8125rem;
+}
+
+.yearly-controls .yr-filter-select {
+  min-width: 160px;
+}
+
+.yearly-controls [hidden] {
+  display: none;
+}
+
+.yearly-period-btn {
+  white-space: nowrap;
+}
+
+.report-section > .page-header {
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.report-section > .page-header h1 {
+  flex: 0 0 auto;
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+.report-section > .page-header .controls {
+  gap: 0.55rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.report-section > .page-header .controls > .input {
+  height: 36px;
+  min-width: 136px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 0.825rem;
+}
+
+.report-section > .page-header .controls > .btn {
+  flex: 0 0 auto;
+  min-height: 36px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-size: 0.825rem;
+}
+
+.report-section > .page-header .yearly-controls {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr) max-content;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.yearly-period-controls,
+.yearly-action-group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.yearly-period-controls {
+  min-width: 0;
+}
+
+.yearly-period-controls .yr-filter-select {
+  height: 36px;
+  padding: 0 10px;
+  font-size: 0.825rem;
+}
+
+.yearly-filter-group {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.yearly-filter-group .yr-filter-select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  font-size: 0.825rem;
+}
+
+.yearly-action-group .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.report-section > .card {
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.report-section .table th,
+.report-section .table td {
+  padding: 0.7rem 0.85rem;
+}
+
+.jv-cal-nav {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.welcome-card {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+#confirmation-modal-buttons button,
+#edit-code-modal-buttons button {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 9px;
+}
+
+@media (max-width: 900px) {
+  .container {
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+  }
+
+  .header-inner {
+    align-items: flex-start;
+  }
+
+  .nav {
+    justify-content: flex-end;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .report-section > .page-header {
+    align-items: flex-start;
+  }
+
+  .report-section > .page-header .controls {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .report-section > .page-header .yearly-controls {
+    grid-template-columns: max-content minmax(0, 1fr);
+  }
+
+  .yearly-filter-group {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .yearly-action-group {
+    grid-column: 2;
+    grid-row: 1;
+    justify-content: flex-end;
+  }
+
+  .fiscal-year-management {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .fiscal-year-management .controls {
+    flex: 0 0 auto;
+    width: 100%;
+  }
+
+  .controls {
+    flex-wrap: wrap;
+  }
+
+  .purchase-group-card .card-header {
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .component-summary {
+    flex-wrap: wrap;
+    margin: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .header-inner {
+    align-items: center;
+    flex-wrap: wrap;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+  }
+
+  .nav {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .nav .btn {
+    flex: 1 1 auto;
+  }
+
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 1rem;
+  }
+
+  .report-section > .page-header {
+    gap: 0.75rem;
+    padding: 0.8rem;
+  }
+
+  .report-section > .page-header h1 {
+    font-size: 1.2rem;
+  }
+
+  .page-header .controls,
+  #main-action-buttons {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .page-header .controls > .btn,
+  #main-action-buttons > .btn {
+    flex: 1 1 auto;
+  }
+
+  .report-section > .page-header .controls > .input {
+    flex: 1 1 130px;
+  }
+
+  .report-section > .page-header .controls > .btn {
+    flex: 0 0 auto;
+  }
+
+  .report-section > .page-header .yearly-controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .yearly-filter-group {
+    grid-column: 1;
+    grid-row: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .yearly-action-group {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  #yearly-category-select {
+    grid-column: 1 / -1;
+  }
+
+  .yearly-period-controls,
+  .yearly-filter-group,
+  .yearly-action-group {
+    width: 100%;
+  }
+
+  .yearly-period-controls .yr-filter-select {
+    width: auto;
+    min-width: 130px;
+  }
+
+  .yearly-action-group .btn {
+    flex: 1 1 0;
+  }
+
+  .summary-content {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .summary-totals {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .summary-item {
+    align-items: flex-start;
+    font-size: 0.75rem;
+  }
+
+  .summary-item .is-numeric,
+  .summary-grand-total .is-numeric {
+    font-size: 0.9rem;
+  }
+
+  .purchase-groups-container {
+    padding-bottom: 150px;
+  }
+
+  .tabs {
+    overflow-x: auto;
+    padding: 0 0.75rem;
+  }
+
+  .tab-button {
+    flex: 0 0 auto;
+    padding: 0 0.75rem;
+  }
+
+  .management-panel > .tabs {
+    gap: 0;
+    padding: 0.5rem 0.25rem 0;
+  }
+
+  .management-panel .tab-button {
+    padding: 0 0.4rem;
+    font-size: 0.78rem;
+  }
+
+  .management-panel > .card-body {
+    padding: 0.85rem;
+  }
+
+  #export-fiscal-year-catalog-btn {
+    grid-column: 1 / -1;
+  }
+
+  .content-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .fiscal-year-management {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .fiscal-year-management .controls {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .fiscal-year-management .controls select {
+    grid-column: 1 / -1;
+  }
+
+  .fiscal-year-management .controls > * {
+    flex: 1 1 100%;
+  }
+
+  #items-tab .mgmt-header-card,
+  #items-tab .add-item-card,
+  #items-tab .items-toolbar-card {
+    margin-bottom: 0.85rem;
+    padding: 0.9rem;
+  }
+
+  #items-tab .add-item-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+    gap: 0.6rem;
+  }
+
+  #items-tab .add-item-row > * {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #items-tab .filter-row {
+    gap: 0.65rem;
+  }
+
+  #items-tab .select-wrapper {
+    min-width: 0;
+  }
+
+  #items-tab .items-toolbar-card {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.65rem;
+  }
+
+  #items-tab .search-box-wrapper {
+    width: 100%;
+    min-width: 0;
+  }
+
+  #items-tab .toggle-mode-box,
+  #items-tab .items-toolbar-card > div[style] {
+    width: 100%;
+  }
+
+  #items-tab .toggle-mode-box {
+    gap: 0.65rem;
+    padding: 0.65rem 0.75rem;
+  }
+
+  #items-tab .toggle-subtitle {
+    line-height: 1.35;
+  }
+
+  .filter-row,
+  .add-item-row {
+    flex-wrap: wrap;
+  }
+
+  .search-box-wrapper {
+    min-width: 100%;
+  }
+}
